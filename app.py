@@ -21,6 +21,8 @@ st.divider()
 
 if "questions" not in st.session_state:
     st.session_state.questions = []
+if "is_generating" not in st.session_state:
+    st.session_state.is_generating = False
 
 with st.sidebar:
     st.header("⚙️ 系統設定")
@@ -61,8 +63,9 @@ with col1:
     difficulty = st.selectbox("整體難易度", ["基礎", "中等", "進階"], index=1)
 
 with col2:
-    num_single = st.number_input("單選題", min_value=0, max_value=20, value=5)
-    num_fill = st.number_input("填充題", min_value=0, max_value=20, value=5)
+    # 🚀 已更新預設題數為 2, 2, 1
+    num_single = st.number_input("單選題", min_value=0, max_value=20, value=2)
+    num_fill = st.number_input("填充題", min_value=0, max_value=20, value=2)
     num_essay = st.number_input("素養題", min_value=0, max_value=5, value=1)
 
 total_questions = num_single + num_fill + num_essay
@@ -71,67 +74,74 @@ max_allowed = 36 if auth_code == "kai36" else 15
 if total_questions > max_allowed:
     st.error(f"❌ 最高僅支援 {max_allowed} 題。"); st.stop()
 
-# 🚀 建立一個「可拋棄式容器」，這是對付 Streamlit 畫面變淡殘留的終極武器
+# 🚀 佈局修正：將按鈕固定在條件設定區的正下方
+start_btn = st.button("🚀 開始漸進式生成考卷", type="primary", use_container_width=True)
+
+# 🚀 佈局修正：在按鈕「之後」才宣告顯示區容器，這樣考卷長出來時只會往下長，不會把按鈕推走
 final_view_container = st.empty()
 
-if st.button("🚀 開始漸進式生成考卷", type="primary", use_container_width=True):
+if start_btn:
     if not topics_input: 
         st.warning("請輸入單元！")
         st.stop()
         
-    # 🚀 絕招：在開始耗時運算前，先手動把舊容器炸掉，舊題目瞬間消失！
     final_view_container.empty()
     st.session_state.questions = []
-    clean_up_temp_images([f"temp_img_{i}.png" for i in range(40)])
-    
-    st.divider()
-    st.subheader("👁️ 考卷即時預覽 (生成中...)")
-    
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    preview_container = st.container()
-    
-    task_list = ["純文字計算題 (無插圖)"]*num_single + ["一般幾何 (平面/複合圖形)"]*num_fill + ["會考非選素養題 (情境+兩小題)"]*num_essay
-    
-    for idx, q_type in enumerate(task_list):
-        status_text.text(f"⏳ 正在思考並繪製第 {idx+1}/{total_questions} 題... ({q_type})")
-        
-        result = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_type, question_index=idx+1)
-        
-        if isinstance(result, list) and len(result) > 0: result = result[0]
-        if not isinstance(result, dict): result = {"question_text": "格式異常", "python_code": ""}
-        
-        img_path = f"temp_img_{idx}.png"
-        p_code = result.get("python_code")
-        if p_code is None: p_code = ""
-            
-        has_img = execute_ai_plot_code(p_code, img_path)
-        
-        new_q = {
-            "id": idx, "type": q_type, 
-            "text": result.get("question_text", "生成失敗"), 
-            "code": p_code, 
-            "img": img_path if has_img else None
-        }
-        st.session_state.questions.append(new_q)
-        
-        with preview_container:
-            st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
-            st.markdown(f"**第 {idx+1} 題**")
-            st.markdown(new_q["text"])
-            if new_q["img"]: st.image(new_q["img"], width=400)
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-        progress_bar.progress((idx + 1) / total_questions)
-        if auth_code == "kai36" and total_questions > 15 and (idx + 1) % 5 == 0:
-            status_text.text("🛡️ 流量冷卻中 (8 秒)..."); time.sleep(8)
-            
-    status_text.text("✅ 生成完畢！您可以點擊下方按鈕匯出檔案，或針對單題重新生成。")
-    # 產生完畢後強制重整畫面，讓生成的題目正確塞入下方的 final_view_container 中
+    st.session_state.is_generating = True
     st.rerun()
 
-# 🚀 使用 container 裝載最後的微調區塊，這樣下次按鈕一按，這裡就能被整組清空
-if st.session_state.questions:
+# 將後續的所有生成與預覽畫面，強制鎖進 final_view_container 中
+if st.session_state.is_generating:
+    with final_view_container.container():
+        clean_up_temp_images([f"temp_img_{i}.png" for i in range(40)])
+        
+        st.divider()
+        st.subheader("👁️ 考卷即時預覽 (生成中...)")
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        preview_container = st.container()
+        
+        task_list = ["純文字計算題 (無插圖)"]*num_single + ["一般幾何 (平面/複合圖形)"]*num_fill + ["會考非選素養題 (情境+兩小題)"]*num_essay
+        
+        for idx, q_type in enumerate(task_list):
+            status_text.text(f"⏳ 正在思考並繪製第 {idx+1}/{total_questions} 題... ({q_type})")
+            
+            result = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_type, question_index=idx+1)
+            
+            if isinstance(result, list) and len(result) > 0: result = result[0]
+            if not isinstance(result, dict): result = {"question_text": "格式異常", "python_code": ""}
+            
+            img_path = f"temp_img_{idx}.png"
+            p_code = result.get("python_code")
+            if p_code is None: p_code = ""
+                
+            has_img = execute_ai_plot_code(p_code, img_path)
+            
+            new_q = {
+                "id": idx, "type": q_type, 
+                "text": result.get("question_text", "生成失敗"), 
+                "code": p_code, 
+                "img": img_path if has_img else None
+            }
+            st.session_state.questions.append(new_q)
+            
+            with preview_container:
+                st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
+                st.markdown(f"**第 {idx+1} 題**")
+                st.markdown(new_q["text"])
+                if new_q["img"]: st.image(new_q["img"], width=400)
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+            progress_bar.progress((idx + 1) / total_questions)
+            if auth_code == "kai36" and total_questions > 15 and (idx + 1) % 5 == 0:
+                status_text.text("🛡️ 流量冷卻中 (8 秒)..."); time.sleep(8)
+                
+        status_text.text("✅ 生成完畢！您可以點擊下方按鈕匯出檔案，或針對單題重新生成。")
+        st.session_state.is_generating = False
+        st.rerun()
+
+if st.session_state.questions and not st.session_state.is_generating:
     with final_view_container.container():
         st.divider()
         st.subheader("👁️ 考卷微調與下載區")
