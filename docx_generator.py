@@ -1,3 +1,4 @@
+# 檔案 3：docx_generator.py (排版與 MD 生成)
 import os
 import pypandoc
 import re
@@ -8,14 +9,12 @@ from docx.oxml import OxmlElement
 from docxcompose.composer import Composer
 
 def clean_latex_spacing(text: str) -> str:
-    """自動清除 $ 與數學式之間的空白，避免 Word 渲染失敗"""
     cleaned = re.sub(r'\$\s+(.*?)\s+\$', r'$\1$', text)
     cleaned = re.sub(r'\$\s+', r'$', cleaned)
     cleaned = re.sub(r'\s+\$', r'$', cleaned)
     return cleaned
 
 def force_kai_font(doc, font_size=12):
-    """強制統一標楷體與字級大小"""
     for paragraph in doc.paragraphs:
         for run in paragraph.runs:
             run.font.size = Pt(font_size)
@@ -30,29 +29,23 @@ def force_kai_font(doc, font_size=12):
             rFonts.set(qn('w:eastAsia'), '標楷體')
 
 def generate_word_documents(questions_data: list, template_path: str = None) -> tuple:
-    """
-    回傳 (Word檔路徑, Markdown純文字)
-    """
     word_md = ""
     download_md = "# 阿凱數學出卷系統 - 測驗卷原始碼\n\n"
     
     for idx, q in enumerate(questions_data, 1):
         clean_text = clean_latex_spacing(q['text'])
         
-        # 供 Word 轉換的版本 (只有純題目與圖片)
         word_md += f"**{idx}.** {clean_text}\n\n"
-        # 供下載的 MD 版本
         download_md += f"### 第 {idx} 題\n\n{clean_text}\n\n"
         
         if q.get('img') and os.path.exists(q['img']):
             word_md += f"![圖示]({q['img']}){{width=\"3.2in\"}}\n\n"
             download_md += f"![圖示]({q['img']})\n\n"
             
-            # 在下載版 Markdown 加入 Python 原始碼，折疊顯示
             if q.get('code'):
                 download_md += "<details><summary>🖼️ 點擊展開：繪圖 Python 原始碼</summary>\n\n"
-                bt = "`" * 3
-                download_md += f"{bt}python\n" + q['code'] + f"\n{bt}\n\n</details>\n\n"
+                tick3 = chr(96) * 3
+                download_md += f"{tick3}python\n" + q['code'] + f"\n{tick3}\n\n</details>\n\n"
                 
         word_md += "<br><br>\n\n"
         download_md += "---\n\n"
