@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.patches as patches
 from matplotlib.patches import Rectangle, RegularPolygon, Wedge, Circle, Arc
-import matplotlib.ticker as ticker  # 🚀 新增 ticker 用來清洗醜醜的刻度
 import numpy as np
 import math
 import os
@@ -70,20 +69,10 @@ def draw_grid_option(ax, title, active_indices):
 
 def draw_math_axes(ax):
     """
-    提供給 AI 呼叫的基礎設定。
-    注意：我們不在這裡畫箭頭，而是交給後處理 (post-processing) 來確保箭頭永遠在最終邊界！
+    🚀 給 AI 呼叫的標記函式。
+    一旦 AI 呼叫了這個，系統就會在最後接管畫布，執行「無刻度完美坐標系」的後處理。
     """
-    ax.set_axis_on() 
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_visible(True)
-    ax.spines['bottom'].set_visible(True)
-    ax.spines['left'].set_position('zero')
-    ax.spines['bottom'].set_position('zero')
-    ax.spines['left'].set_linewidth(1.5)
-    ax.spines['bottom'].set_linewidth(1.5)
-    ax.spines['left'].set_color('black')
-    ax.spines['bottom'].set_color('black')
+    ax._is_math_axes = True
 
 def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
     if python_code is None or not isinstance(python_code, str) or python_code.strip() == "":
@@ -119,49 +108,50 @@ plt.rcParams['axes.unicode_minus'] = False
         
         exec(code_to_run, env)
         
-        # 🚀 終極後處理魔法：等 AI 畫完後，系統強制接管畫布收尾！
-        is_math_axes = False
-        try:
-            pos_b = ax.spines['bottom'].get_position()
-            pos_l = ax.spines['left'].get_position()
-            if pos_b in ['zero', ('data', 0)] or pos_l in ['zero', ('data', 0)]:
-                is_math_axes = True
-        except: pass
-        
-        if is_math_axes:
-            # 1. 消除原點重疊的 0 魔法：自訂刻度格式
-            def clean_ticks(x, pos):
-                if abs(x) < 1e-7: return '' # 遇到 0 絕對隱藏！
-                if float(x).is_integer(): return str(int(x)) # 把 2.0 變 2
-                return str(x)
-                
-            ax.xaxis.set_major_formatter(ticker.FuncFormatter(clean_ticks))
-            ax.yaxis.set_major_formatter(ticker.FuncFormatter(clean_ticks))
+        # 🚀 終極後處理：接管數學坐標系的繪製
+        if hasattr(ax, '_is_math_axes') and ax._is_math_axes:
+            # 1. 強制喚醒坐標軸 (以防 AI 把它關了)，並隱藏上與右框線
+            ax.set_axis_on()
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(True)
+            ax.spines['bottom'].set_visible(True)
+            ax.spines['left'].set_position('zero')
+            ax.spines['bottom'].set_position('zero')
+            ax.spines['left'].set_linewidth(1.5)
+            ax.spines['bottom'].set_linewidth(1.5)
             
-            # 2. 獲取「AI 畫完所有幾何圖形後」的最終邊界
+            # 2. 🚀 徹底清除所有刻度與數字 (符合數學考卷標準)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            
+            # 3. 獲取 AI 畫完圖形後的「最終邊界」
             xmin, xmax = ax.get_xlim()
             ymin, ymax = ax.get_ylim()
             
-            # 強制向外延伸一點點 (5%)，讓箭頭有空間，不會跟最後一個數字擠在一起
-            x_margin = (xmax - xmin) * 0.05
-            y_margin = (ymax - ymin) * 0.05
-            ax.set_xlim(xmin, xmax + x_margin)
-            ax.set_ylim(ymin, ymax + y_margin)
+            # 防呆：確保原點一定在畫面內
+            if xmin >= 0: xmin = -1
+            if xmax <= 0: xmax = 1
+            if ymin >= 0: ymin = -1
+            if ymax <= 0: ymax = 1
             
-            # 重新獲取延伸後的邊界
+            # 4. 強制向外延伸 10%，預留箭頭與文字的完美空間
+            x_margin = (xmax - xmin) * 0.1
+            y_margin = (ymax - ymin) * 0.1
+            ax.set_xlim(xmin - x_margin*0.2, xmax + x_margin)
+            ax.set_ylim(ymin - y_margin*0.2, ymax + y_margin)
+            
             xmax_new = ax.get_xlim()[1]
             ymax_new = ax.get_ylim()[1]
             
-            # 3. 釘死箭頭：在最最末端畫上完美的實體箭頭 (zorder=100 保證在最上層)
+            # 5. 釘死箭頭：在真正的最邊界使用 plot 畫出標準黑箭頭
             ax.plot(xmax_new, 0, marker='>', color='black', markersize=8, clip_on=False, zorder=100)
             ax.plot(0, ymax_new, marker='^', color='black', markersize=8, clip_on=False, zorder=100)
             
-            # 4. 釘死標籤：在箭頭旁邊補上斜體的 x 與 y
-            ax.text(xmax_new + x_margin*0.5, 0, '$x$', ha='left', va='center', fontsize=18)
-            ax.text(0, ymax_new + y_margin*0.5, '$y$', ha='center', va='bottom', fontsize=18)
-            
-            # 5. 補上完美的斜體 O (Origin) 於原點左下方
-            ax.annotate('$O$', xy=(0, 0), xytext=(-12, -12), textcoords='offset points', fontsize=18, ha='right', va='top')
+            # 6. 釘死標籤：精準放置斜體的 x, y, O
+            ax.text(xmax_new, -y_margin*0.2, '$x$', ha='center', va='top', fontsize=18, clip_on=False)
+            ax.text(-x_margin*0.2, ymax_new, '$y$', ha='right', va='center', fontsize=18, clip_on=False)
+            ax.text(-x_margin*0.2, -y_margin*0.2, '$O$', ha='right', va='top', fontsize=18, clip_on=False)
 
         if not os.path.exists(output_filename):
             for artist in ax.get_children():
