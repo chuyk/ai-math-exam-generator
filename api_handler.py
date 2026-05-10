@@ -1,4 +1,3 @@
-# 檔案 2：api_handler.py (API 溝通大腦與 108 課綱檢索)
 import json
 import random
 import re
@@ -34,6 +33,9 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
     4. 【考卷印刷視覺規範】：所有的繪圖絕對禁止使用灰色或彩色填滿！一律「純白底、純黑線」。
     5. 【⚠️ Markdown 刪除線防呆】：若要表示分數或數字範圍，【絕對使用全形波浪號「～」或連字號「-」】，嚴禁使用半形波浪號「~」。
     6. 多樣性要求：請確保題型與圖形的多樣性，若為四邊形單元，請隨機考慮梯形、箏形、菱形等不同圖形，不要只出同一種。
+    7. 【⚠️ 線段與圓弧符號明確區分】：
+       - 若表示「線段」(如線段AB)，請正常使用 \\\\overline{{AB}}。
+       - 若表示「圓弧」(如弧AB)，絕對禁止使用 \\\\overparen！請一律替換為 \\\\wideparen{{AB}}，這是唯一能讓網頁與 Word 雙端皆正確顯示弧線的語法。
     """
     
     prompt = ""
@@ -60,13 +62,16 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  u = (A - D) / np.linalg.norm(A - D); v = (C - D) / np.linalg.norm(C - D)
                  p1 = D + 0.5 * u; p2 = p1 + 0.5 * v; p3 = D + 0.5 * v
                  ax.plot([p1[0], p2[0], p3[0]], [p1[1], p2[1], p3[1]], 'k-', lw=1.5)
-               - 【⚠️ 圖片裁切防禦機制】：繪圖最後，請「絕對」加上以下三行：
-                 ax.relim(); ax.autoscale_view(); ax.margins(0.15)
+               - 【⚠️ 圖片裁切防禦機制】：繪圖最後，請「絕對」加上以下三行，強迫系統重新計算邊界並留白，防止圓弧或圖形被卡斷：
+                 ax.relim()
+                 ax.autoscale_view()
+                 ax.margins(0.15)
                - 存為 temp_diagram.png (bbox_inches='tight')。
             """
         elif question_type == "立體圖形三視圖 (積木堆疊)":
             target_view = random.choice(["前視圖", "上視圖", "右視圖"])
             h_matrix = f"[[{random.randint(0,3)}, {random.randint(0,3)}, {random.randint(0,2)}], [{random.randint(0,3)}, {random.randint(1,3)}, {random.randint(0,3)}], [{random.randint(0,2)}, {random.randint(0,3)}, {random.randint(0,2)}]]"
+            
             prompt = f"""
             請生成一道【{difficulty}】難度的「立體積木三視圖」選擇題。
             {base_rules}
@@ -95,7 +100,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             1. "question_text": 包含題目、四個選項與解析。
             2. "python_code": 繪製該圖形的展開圖。
                - 【⚠️ 角柱展開圖防呆演算法】：AI你不會算旋轉，請【絕對照抄】這段演算法畫角柱：
-                 N = 5
+                 N = 5 # 依照題目多邊形邊數修改(如3,4,5,6)
                  a = 2; h = 5
                  for i in range(N): ax.add_patch(Rectangle((i*a, 0), a, h, fc='white', ec='black', lw=1.5))
                  R = a / (2 * np.sin(np.pi/N)); apothem = a / (2 * np.tan(np.pi/N))
