@@ -1,241 +1,157 @@
 import streamlit as st
 import time
 import os
+import random
 from api_handler import generate_question
 from plot_utils import execute_ai_plot_code, clean_up_temp_images
 from docx_generator import generate_word_documents
 
-# ==========================================
-# 1. 網頁基本設定與樣式 (淡色舒適風格)
-# ==========================================
 st.set_page_config(page_title="阿凱的數學出卷系統", layout="wide", page_icon="📝")
 
-# 自訂 CSS 隱藏預設選單，並美化介面
 st.markdown("""
     <style>
     .main { background-color: #FAFAFA; }
     h1, h2, h3 { color: #2C3E50; }
-    .stAlert { border-radius: 10px; }
-    .stButton>button { border-radius: 8px; font-weight: bold; }
-    .question-card { 
-        background-color: white; 
-        padding: 20px; 
-        border-radius: 10px; 
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
-        margin-bottom: 20px;
-    }
+    .question-card { background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
     </style>
 """, unsafe_allow_html=True)
 
-# 行動裝置醒目警告
-st.warning("📱 **【系統提示】** 本系統涉及複雜的數學公式渲染與版面配置，強烈建議使用 **電腦版網頁** 開啟，以獲得最佳的操作體驗與預覽效果！")
-
-# 標題
+st.warning("📱 **【系統提示】** 強烈建議使用 **電腦版網頁** 開啟，以獲得最佳的操作體驗與預覽效果！")
 st.title("📝 阿凱的數學出卷系統(含幾何圖形)")
 st.divider()
 
-# ==========================================
-# 2. 狀態管理 (Session State) 初始化
-# ==========================================
 if "questions" not in st.session_state:
     st.session_state.questions = []
 if "is_generating" not in st.session_state:
     st.session_state.is_generating = False
 
-# ==========================================
-# 3. 左側邊欄：系統設定與 API 驗證
-# ==========================================
 with st.sidebar:
     st.header("⚙️ 系統設定")
-    
-    # API Key 設定區塊
     api_key = st.text_input("輸入 Google API Key", type="password")
-    st.markdown("[👉 點此前往 Google AI Studio 獲取金鑰](https://aistudio.google.com/app/api-keys)", unsafe_allow_html=True)
-    
-    # 啟動碼驗證
-    auth_code = st.text_input("系統啟動碼", type="password", placeholder="請輸入啟動碼以啟用系統")
-    
-    # 模型選擇
-    model_options = [
-        "gemini-3-flash-preview", 
-        "gemini-3.1-flash-lite", 
-        "gemini-3.1-flash-lite-preview", 
-        "gemma-4-31B-it", 
-        "gemma-4-26B-A4B-it"
-    ]
-    selected_model = st.selectbox("選擇 AI 模型", model_options)
+    st.markdown("[👉 點此前往獲取金鑰](https://aistudio.google.com/app/api-keys)", unsafe_allow_html=True)
+    auth_code = st.text_input("系統啟動碼", type="password")
+    selected_model = st.selectbox("選擇 AI 模型", ["gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-3.1-flash-lite-preview", "gemma-4-31B-it", "gemma-4-26B-A4B-it"])
     
     st.divider()
     st.header("📄 考卷格式設定")
     uploaded_file = st.file_uploader("上傳學校 Word 範本 (.docx)", type=["docx"])
     if uploaded_file is not None:
-        with open("template.docx", "wb") as f:
-            f.write(uploaded_file.getbuffer())
+        with open("template.docx", "wb") as f: f.write(uploaded_file.getbuffer())
         st.success("✅ 範本已載入")
         
-    # 將版權宣告移至側邊欄最下方
     st.divider()
     st.caption("© 宜蘭縣中華國中 - 褚煜凱老師設計")
 
-# ==========================================
-# 4. 主畫面：命題參數設定
-# ==========================================
 if auth_code not in ["kai", "kai36"]:
-    st.info("🔒 請於左側邊欄輸入正確的「啟動碼」以解鎖命題功能。")
-    st.stop()
+    st.info("🔒 請輸入正確的「啟動碼」解鎖功能。"); st.stop()
 elif not api_key:
-    st.warning("🔑 請輸入 Google API Key 以連線至 AI 引擎。")
-    st.stop()
+    st.warning("🔑 請輸入 API Key。"); st.stop()
 
 st.subheader("🎯 命題條件設定")
 col1, col2 = st.columns(2)
 
 with col1:
+    edu_level = st.selectbox("教育階段 (108課綱)", ["國小", "國中", "高中"], index=1)
     topics_input = st.text_input("單元主題", placeholder="例如：平行四邊形, 幾何證明")
-    # 難易度選項已更新
     difficulty = st.selectbox("整體難易度", ["基礎", "中等", "進階"])
 
 with col2:
-    num_single = st.number_input("四選一單選題 (題數)", min_value=0, max_value=20, value=5)
-    num_fill = st.number_input("填充題 (題數)", min_value=0, max_value=20, value=5)
-    num_essay = st.number_input("素養非選題 (題數)", min_value=0, max_value=5, value=1)
+    num_single = st.number_input("單選題", min_value=0, max_value=20, value=5)
+    num_fill = st.number_input("填充題", min_value=0, max_value=20, value=5)
+    num_essay = st.number_input("素養題", min_value=0, max_value=5, value=1)
 
 total_questions = num_single + num_fill + num_essay
-
-# 題數限制與警告邏輯
 max_allowed = 36 if auth_code == "kai36" else 15
+
 if total_questions > max_allowed:
-    st.error(f"❌ 您目前的啟動碼最高僅支援 {max_allowed} 題，請減少題數或使用進階啟動碼。")
-    st.stop()
+    st.error(f"❌ 最高僅支援 {max_allowed} 題。"); st.stop()
 
-if auth_code == "kai36" and total_questions > 15:
-    st.warning("⚠️ **【大題庫模式啟用】** 您設定的題數較多，為避免觸發 AI 伺服器流量限制，系統將在背景啟動安全延遲保護。出卷時間預估需 3～5 分鐘，請耐心等候！")
+if st.button("🚀 開始漸進式生成考卷", type="primary", use_container_width=True):
+    if not topics_input: st.warning("請輸入單元！"); st.stop()
+    
+    st.session_state.is_generating = True
+    st.session_state.questions = []
+    clean_up_temp_images([f"temp_img_{i}.png" for i in range(40)])
+    
+    st.divider()
+    st.subheader("👁️ 考卷即時預覽 (生成中...)")
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    preview_container = st.container()
+    
+    # 按照使用者要求的數量建立題型清單
+    task_list = ["純文字計算題 (無插圖)"]*num_single + ["一般幾何 (平面/複合圖形)"]*num_fill + ["會考非選素養題 (情境+兩小題)"]*num_essay
+    
+    for idx, q_type in enumerate(task_list):
+        status_text.text(f"⏳ 正在思考並繪製第 {idx+1}/{total_questions} 題... ({q_type})")
+        
+        result = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_type)
+        
+        if isinstance(result, list) and len(result) > 0: result = result[0]
+        if not isinstance(result, dict): result = {"question_text": "生成失敗", "python_code": ""}
+        
+        img_path = f"temp_img_{idx}.png"
+        has_img = execute_ai_plot_code(result.get("python_code", ""), img_path)
+        
+        new_q = {
+            "id": idx, "type": q_type, 
+            "text": result.get("question_text", "生成失敗"), 
+            "code": result.get("python_code", ""), 
+            "img": img_path if has_img else None
+        }
+        st.session_state.questions.append(new_q)
+        
+        with preview_container:
+            st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
+            st.markdown(f"**第 {idx+1} 題**")
+            st.markdown(new_q["text"])
+            if new_q["img"]: st.image(new_q["img"], width=400)
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+        progress_bar.progress((idx + 1) / total_questions)
+        if auth_code == "kai36" and total_questions > 15 and (idx + 1) % 5 == 0:
+            status_text.text("🛡️ 流量冷卻中 (8 秒)..."); time.sleep(8)
+            
+    status_text.text("✅ 生成完畢！您可以點擊下方按鈕匯出檔案，或針對單題重新生成。")
+    st.session_state.is_generating = False
+    st.rerun()
 
-# ==========================================
-# 5. 核心邏輯：生成考卷
-# ==========================================
-if st.button("🚀 開始一鍵生成考卷", type="primary", use_container_width=True):
-    if total_questions == 0:
-        st.warning("請至少設定一題！")
-    elif not topics_input:
-        st.warning("請輸入單元主題！")
-    else:
-        st.session_state.is_generating = True
-        st.session_state.questions = []
-        clean_up_temp_images([f"temp_img_{i}.png" for i in range(40)]) # 清理舊圖
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        # 建立題型需求列表
-        task_list = ["純文字計算題 (無插圖)"] * num_single + \
-                    ["一般幾何 (平面/複合圖形)"] * num_fill + \
-                    ["會考非選素養題 (情境+兩小題)"] * num_essay
-        
-        for idx, q_type in enumerate(task_list):
-            status_text.text(f"⏳ 正在思考第 {idx+1}/{total_questions} 題... ({q_type})")
-            
-            # API 呼叫
-            result = generate_question(
-                api_key=api_key, model_name=selected_model, 
-                topic=topics_input, difficulty=difficulty, question_type=q_type
-            )
-            
-            # ==========================================
-            # 🚀 關鍵防呆機制：確保 result 絕對是字典 (dict)
-            # ==========================================
-            if isinstance(result, list) and len(result) > 0:
-                result = result[0]
-            if not isinstance(result, dict):
-                result = {"question_text": f"題目生成失敗，回傳格式異常。", "python_code": ""}
-            # ==========================================
-            
-            # 處理繪圖
-            img_path = f"temp_img_{idx}.png"
-            has_img = execute_ai_plot_code(result.get("python_code", ""), img_path)
-            
-            st.session_state.questions.append({
-                "id": idx,
-                "type": q_type,
-                "text": result.get("question_text", "題目生成失敗"),
-                "code": result.get("python_code", ""),
-                "img": img_path if has_img else None
-            })
-            
-            progress_bar.progress((idx + 1) / total_questions)
-            
-            # 大題庫模式的流量保護延遲 (每 5 題休息 8 秒)
-            if auth_code == "kai36" and total_questions > 15 and (idx + 1) % 5 == 0:
-                status_text.text("🛡️ 觸發流量保護機制，系統冷卻中 (約 8 秒)...")
-                time.sleep(8)
-                
-        status_text.text("✅ 所有題目生成完畢！")
-        st.session_state.is_generating = False
-
-# ==========================================
-# 6. 預覽與單題重測區
-# ==========================================
 if st.session_state.questions and not st.session_state.is_generating:
     st.divider()
-    st.subheader("👁️ 考卷預覽與微調")
+    st.subheader("👁️ 考卷微調與下載區")
     
     for idx, q_data in enumerate(st.session_state.questions):
         st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
         st.markdown(f"**第 {idx+1} 題** ({q_data['type']})")
-        
-        # 顯示題目
         st.markdown(q_data["text"])
-        
-        # 顯示圖片
-        if q_data["img"] and os.path.exists(q_data["img"]):
-            st.image(q_data["img"], width=400)
+        if q_data["img"] and os.path.exists(q_data["img"]): st.image(q_data["img"], width=400)
             
-        # 重新生成單題按鈕
         if st.button(f"🔄 換一題 (第 {idx+1} 題)", key=f"reroll_{idx}"):
             with st.spinner("重新生成中..."):
-                new_result = generate_question(
-                    api_key=api_key, model_name=selected_model, 
-                    topic=topics_input, difficulty=difficulty, 
-                    question_type=q_data['type'], is_reroll=True,
-                    current_question=q_data["text"], current_code=q_data["code"]
-                )
-                
-                # 同樣加上型別防呆
-                if isinstance(new_result, list) and len(new_result) > 0:
-                    new_result = new_result[0]
-                if not isinstance(new_result, dict):
-                    new_result = {"question_text": "生成格式錯誤", "python_code": ""}
-                    
-                has_img = execute_ai_plot_code(new_result.get("python_code", ""), q_data["img"])
-                
-                st.session_state.questions[idx]["text"] = new_result.get("question_text", "生成失敗")
-                st.session_state.questions[idx]["code"] = new_result.get("python_code", "")
+                new_res = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_data['type'], True, q_data["text"], q_data["code"])
+                if isinstance(new_res, list) and len(new_res) > 0: new_res = new_res[0]
+                if not isinstance(new_res, dict): new_res = {"question_text": "錯誤", "python_code": ""}
+                has_img = execute_ai_plot_code(new_res.get("python_code", ""), q_data["img"])
+                st.session_state.questions[idx]["text"] = new_res.get("question_text", "失敗")
+                st.session_state.questions[idx]["code"] = new_res.get("python_code", "")
                 st.session_state.questions[idx]["img"] = q_data["img"] if has_img else None
                 st.rerun()
-                
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ==========================================
-    # 7. 最終匯出 Word
-    # ==========================================
     st.divider()
     st.subheader("🖨️ 匯出正式考卷")
     
     template_path = "template.docx" if os.path.exists("template.docx") else None
     
-    if st.button("📥 下載教師用解答本 (.docx)", type="primary"):
-        with st.spinner("正在執行 Pandoc 方程式轉換與 Word 無損縫合，請稍候..."):
-            output_file = generate_word_documents(
-                questions_data=st.session_state.questions,
-                template_path=template_path,
-                generate_student_version=False
-            )
-            
-            if os.path.exists(output_file):
-                with open(output_file, "rb") as file:
-                    st.download_button(
-                        label="✅ 點擊此處儲存檔案",
-                        data=file,
-                        file_name="中華國中_AI數學考卷.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    )
+    with st.spinner("準備檔案中..."):
+        docx_file, raw_md = generate_word_documents(st.session_state.questions, template_path)
+    
+    col_dl1, col_dl2 = st.columns(2)
+    with col_dl1:
+        if os.path.exists(docx_file):
+            with open(docx_file, "rb") as file:
+                st.download_button("📥 下載 Word 考卷 (.docx)", data=file, file_name="阿凱數學考卷.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
+    with col_dl2:
+        st.download_button("📥 下載 Markdown 原始碼 (.md)", data=raw_md, file_name="阿凱數學考卷_原始碼.md", mime="text/markdown", use_container_width=True)
