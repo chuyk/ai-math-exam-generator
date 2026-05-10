@@ -38,7 +38,7 @@ with st.sidebar:
         "gemma-4-31B-it", 
         "gemma-4-26B-A4B-it"
     ]
-    selected_model = st.selectbox("選擇 AI 模型", model_options)
+    selected_model = st.selectbox("選擇 AI 模型", model_options, index=1)
     
     st.divider()
     st.header("📄 考卷格式設定")

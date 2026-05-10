@@ -1,3 +1,4 @@
+# 檔案 2：api_handler.py (已加回：完整 200 行提示詞、108課綱、圓弧與線段分流防呆)
 import json
 import random
 import re
@@ -31,11 +32,11 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
     2. JSON 跳脫：所有的 LaTeX 語法反斜線「必須雙重跳脫」！例如：\\\\triangle。
     3. LaTeX 包覆：所有的數學符號、方程式，絕對必須用 $ 符號包覆起來，否則網頁無法渲染！
     4. 【考卷印刷視覺規範】：所有的繪圖絕對禁止使用灰色或彩色填滿！一律「純白底、純黑線」。
-    5. 【⚠️ Markdown 刪除線防呆】：若要表示分數或數字範圍，【絕對使用全形波浪號「～」或連字號「-」】，嚴禁使用半形波浪號「~」。
+    5. 【⚠️ Markdown 刪除線防呆】：若要表示分數或數字範圍，【絕對使用全形波浪號「～」或連字號「-」】（例如 50～60 或 50-60），嚴禁使用半形波浪號「~」，否則會觸發 Markdown 刪除線導致排版大亂！
     6. 多樣性要求：請確保題型與圖形的多樣性，若為四邊形單元，請隨機考慮梯形、箏形、菱形等不同圖形，不要只出同一種。
     7. 【⚠️ 線段與圓弧符號明確區分】：
        - 若表示「線段」(如線段AB)，請正常使用 \\\\overline{{AB}}。
-       - 若表示「圓弧」(如弧AB)，絕對禁止使用 \\\\overparen！請一律替換為 \\\\wideparen{{AB}}，這是唯一能讓網頁與 Word 雙端皆正確顯示弧線的語法。
+       - 若表示「圓弧」(如弧AB)，絕對禁止使用 \\\\overparen 或 \\\\wideparen！請一律替換為 \\\\overset{{\\\\frown}}{{AB}}，這是唯一能讓網頁與 Word 雙端皆正確顯示弧線的語法。
     """
     
     prompt = ""
@@ -62,15 +63,14 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  u = (A - D) / np.linalg.norm(A - D); v = (C - D) / np.linalg.norm(C - D)
                  p1 = D + 0.5 * u; p2 = p1 + 0.5 * v; p3 = D + 0.5 * v
                  ax.plot([p1[0], p2[0], p3[0]], [p1[1], p2[1], p3[1]], 'k-', lw=1.5)
-               - 【⚠️ 圖片裁切防禦機制】：繪圖最後，請「絕對」加上以下三行，強迫系統重新計算邊界並留白，防止圓弧或圖形被卡斷：
-                 ax.relim()
-                 ax.autoscale_view()
-                 ax.margins(0.15)
+               - 絕對不要寫死極端的 set_xlim 或 set_ylim，讓系統自動貼合。
                - 存為 temp_diagram.png (bbox_inches='tight')。
             """
         elif question_type == "立體圖形三視圖 (積木堆疊)":
             target_view = random.choice(["前視圖", "上視圖", "右視圖"])
-            h_matrix = f"[[{random.randint(0,3)}, {random.randint(0,3)}, {random.randint(0,2)}], [{random.randint(0,3)}, {random.randint(1,3)}, {random.randint(0,3)}], [{random.randint(0,2)}, {random.randint(0,3)}, {random.randint(0,2)}]]"
+            h_matrix = f"[[{random.randint(0,3)}, {random.randint(0,3)}, {random.randint(0,2)}], " \
+                       f"[{random.randint(0,3)}, {random.randint(1,3)}, {random.randint(0,3)}], " \
+                       f"[{random.randint(0,2)}, {random.randint(0,3)}, {random.randint(0,2)}]]"
             
             prompt = f"""
             請生成一道【{difficulty}】難度的「立體積木三視圖」選擇題。
@@ -79,7 +79,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             1. "question_text": 
                - 題目指定測驗：【{target_view}】！
                - 題目問：「如圖為正方體堆疊的立體圖形，請判斷其【{target_view}】為何？」
-               - 【⚠️ 選項排版絕對防呆】：四個選項必須是完美的 3x3 矩陣。請「絕對」使用全形 ⬛ 與 ⬜。每一列結束務必加上 `<br>`。
+               - 【⚠️ 選項排版絕對防呆】：四個選項必須是完美的 3x3 矩陣。請「絕對」使用全形 ⬛ 與 ⬜。每一列結束務必加上 `<br>`。例如："(A)<br>⬜⬜⬜<br>⬜⬛⬜<br>⬛⬛⬛"
             2. "python_code": 
                - 【⚠️ 答案同步防呆】：請完全照抄：
                  heights = np.array({h_matrix})
@@ -88,7 +88,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                      for y in range(3):
                          for z in range(heights[x, y]):
                              cubes[x, y, z] = True
-               - 【⚠️ 純黑白防呆】：繪圖時「必須」加上：`ax.set_box_aspect((1, 1, 1))`
+               - 【⚠️ 純黑白防呆】：繪圖時「必須」加上這行：`ax.set_box_aspect((1, 1, 1))`
                - 積木必須是純白底黑線：`ax.voxels(cubes, facecolors='white', edgecolors='black', shade=False)`
                - 使用 ax.view_init(elev=30, azim=-45)。隱藏座標軸。存為 temp_diagram.png。
             """
@@ -106,7 +106,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  R = a / (2 * np.sin(np.pi/N)); apothem = a / (2 * np.tan(np.pi/N))
                  ax.add_patch(RegularPolygon((a/2, -apothem), numVertices=N, radius=R, orientation=np.pi/N, fc='white', ec='black', lw=1.5))
                  ax.add_patch(RegularPolygon((a/2, h + apothem), numVertices=N, radius=R, orientation=(np.pi/N if N%2==0 else np.pi/N + np.pi), fc='white', ec='black', lw=1.5))
-               - 圓錐請確保底圓接在弧線正上方。存為 temp_diagram.png (bbox_inches='tight')。
+               - 圓錐請確保底圓接在弧線正上方。存為 temp_diagram.png。
             """
         elif question_type == "統計圖表 (折線圖/圓餅圖/長條圖/直方圖)":
             prompt = f"""
