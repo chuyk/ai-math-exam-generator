@@ -1,4 +1,4 @@
-# 檔案 3：docx_generator.py (已保留：XML 深度掃描 OMML 數學字級熨斗)
+# 檔案 3：docx_generator.py
 import os
 import pypandoc
 import re
@@ -9,6 +9,7 @@ from docx.oxml import OxmlElement
 from docxcompose.composer import Composer
 
 def clean_latex_spacing(text: str) -> str:
+    """自動清除 $ 與數學式之間的空白，避免 Word 渲染失敗"""
     cleaned = re.sub(r'\$\s+(.*?)\s+\$', r'$\1$', text)
     cleaned = re.sub(r'\$\s+', r'$', cleaned)
     cleaned = re.sub(r'\s+\$', r'$', cleaned)
@@ -45,17 +46,22 @@ def force_kai_font(doc, font_size=12):
         rFonts.set(qn('w:hAnsi'), 'Times New Roman')
 
 def generate_word_documents(questions_data: list, template_path: str = None) -> tuple:
+    """
+    回傳 (Word檔路徑, Markdown純文字)
+    """
     word_md = ""
     download_md = "# 阿凱數學出卷系統 - 測驗卷原始碼\n\n"
     
     for idx, q in enumerate(questions_data, 1):
         clean_text = clean_latex_spacing(q['text'])
+        
         word_md += f"**{idx}.** {clean_text}\n\n"
         download_md += f"### 第 {idx} 題\n\n{clean_text}\n\n"
         
         if q.get('img') and os.path.exists(q['img']):
             word_md += f"![圖示]({q['img']}){{width=\"3.2in\"}}\n\n"
             download_md += f"![圖示]({q['img']})\n\n"
+            
             if q.get('code'):
                 download_md += "<details><summary>🖼️ 點擊展開：繪圖 Python 原始碼</summary>\n\n"
                 tick3 = chr(96) * 3
@@ -75,6 +81,7 @@ def generate_word_documents(questions_data: list, template_path: str = None) -> 
         temp_doc = Document(temp_teacher_docx)
         force_kai_font(temp_doc)
         temp_doc.save(temp_teacher_docx)
+        
         composer.append(Document(temp_teacher_docx))
         force_kai_font(master_doc)
         master_doc.save(output_teacher)
@@ -83,6 +90,7 @@ def generate_word_documents(questions_data: list, template_path: str = None) -> 
         force_kai_font(doc)
         doc.save(output_teacher)
         
-    if os.path.exists(temp_teacher_docx): os.remove(temp_teacher_docx)
+    if os.path.exists(temp_teacher_docx):
+        os.remove(temp_teacher_docx)
 
     return output_teacher, download_md

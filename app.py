@@ -1,4 +1,4 @@
-# 檔案 4：app.py (已保留：漸進式渲染、重載機制與 UI 設定)
+# 檔案 4：app.py
 import streamlit as st
 import time
 import os
@@ -97,18 +97,23 @@ if st.session_state.is_generating:
     for idx, q_type in enumerate(task_list):
         status_text.text(f"⏳ 正在思考並繪製第 {idx+1}/{total_questions} 題... ({q_type})")
         
-        result = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_type)
+        result = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_type, question_index=idx+1)
         
         if isinstance(result, list) and len(result) > 0: result = result[0]
         if not isinstance(result, dict): result = {"question_text": "格式異常", "python_code": ""}
         
         img_path = f"temp_img_{idx}.png"
-        has_img = execute_ai_plot_code(result.get("python_code", ""), img_path)
+        
+        # 🚀 型別安全防呆：確保 p_code 絕對是字串，避免傳入 None
+        p_code = result.get("python_code")
+        if p_code is None: p_code = ""
+            
+        has_img = execute_ai_plot_code(p_code, img_path)
         
         new_q = {
             "id": idx, "type": q_type, 
             "text": result.get("question_text", "生成失敗"), 
-            "code": result.get("python_code", ""), 
+            "code": p_code, 
             "img": img_path if has_img else None
         }
         st.session_state.questions.append(new_q)
@@ -140,12 +145,19 @@ if st.session_state.questions and not st.session_state.is_generating:
             
         if st.button(f"🔄 換一題 (第 {idx+1} 題)", key=f"reroll_{idx}"):
             with st.spinner("重新生成中..."):
-                new_res = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_data['type'], True, q_data["text"], q_data["code"])
+                new_res = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_data['type'], True, q_data["text"], q_data["code"], question_index=idx+1)
+                
                 if isinstance(new_res, list) and len(new_res) > 0: new_res = new_res[0]
                 if not isinstance(new_res, dict): new_res = {"question_text": "錯誤", "python_code": ""}
-                has_img = execute_ai_plot_code(new_res.get("python_code", ""), q_data["img"])
+                
+                # 🚀 換一題時的安全防呆，避免 NoneType 當機
+                new_p_code = new_res.get("python_code")
+                if new_p_code is None: new_p_code = ""
+                    
+                has_img = execute_ai_plot_code(new_p_code, q_data["img"])
+                
                 st.session_state.questions[idx]["text"] = new_res.get("question_text", "失敗")
-                st.session_state.questions[idx]["code"] = new_res.get("python_code", "")
+                st.session_state.questions[idx]["code"] = new_p_code
                 st.session_state.questions[idx]["img"] = q_data["img"] if has_img else None
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
