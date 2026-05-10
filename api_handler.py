@@ -47,7 +47,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
        - 表示角度時，一律使用 LaTeX 語法（例如：$45^\\circ$），絕對嚴禁使用 ∘。
     11. 【🚀 圖片排版定位 (非常重要)】：若題目文字中包含「如圖」，請「務必」在題目敘述結束後、選項 (A) 開始之前，獨立一行插入「[插入圖片]」這四個字！
     12. 【🛑 直角坐標系與防洩題規範】：
-       - 若需要畫出直角坐標平面 (x軸與y軸)，【絕對禁止】自己畫箭頭或呼叫 ax.axis('off')！【必須】呼叫系統內建的 `draw_math_axes(ax)` 函式，它會自動將坐標軸移至原點並加上完美的末端箭頭與 $x, y$ 標籤。
+       - 若需要畫出直角坐標平面 (x軸與y軸)，【絕對禁止】自己畫箭頭、寫 O、x 或 y！【必須】呼叫系統內建的 `draw_math_axes(ax)` 函式。系統會在最後自動幫你補上完美的箭頭與斜體標籤，並消除多餘的 0。
        - 務必設定 ax.set_xlim 與 ax.set_ylim，且【必須包含原點 (0,0)】！
        - 嚴禁在圖形上標示出交點的確切座標值或答案！
     13. 【⚠️ 繁體中文防呆 (最高原則)】：無論是哪種題型，圖形的幾何頂點說明、圖表的標題、X/Y軸標籤、圖例等，全部【必須】使用繁體中文。系統已內建中文支援，請大膽寫中文。
@@ -98,11 +98,11 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  ax_main.view_init(elev=30, azim=-45)
                  ax_main.axis('off')
                  
-                 # 右側畫選項 (強迫使用內建 3x3 九宮格繪圖函式)
-                 ax_a = fig.add_subplot(243); draw_grid_option(ax_a, "(A)", [1, 2, 3, 5]) # 請修改陣列設計混淆選項
-                 ax_b = fig.add_subplot(244); draw_grid_option(ax_b, "(B)", [4, 5, 6, 8]) # 請修改陣列設計混淆選項
-                 ax_c = fig.add_subplot(247); draw_grid_option(ax_c, "(C)", [2, 4, 5, 6]) # 請修改陣列設計混淆選項
-                 ax_d = fig.add_subplot(248); draw_grid_option(ax_d, "(D)", [7, 8, 9]) # 請修改陣列設計正確答案
+                 # 右側畫選項
+                 ax_a = fig.add_subplot(243); draw_grid_option(ax_a, "(A)", [1, 2, 3, 5])
+                 ax_b = fig.add_subplot(244); draw_grid_option(ax_b, "(B)", [4, 5, 6, 8])
+                 ax_c = fig.add_subplot(247); draw_grid_option(ax_c, "(C)", [2, 4, 5, 6])
+                 ax_d = fig.add_subplot(248); draw_grid_option(ax_d, "(D)", [7, 8, 9])
                  
                  plt.subplots_adjust(wspace=0.1, hspace=0.3)
                - 存為 temp_diagram.png (bbox_inches='tight')。
@@ -119,15 +119,11 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  a = 2; h = 5
                  for i in range(N): ax.add_patch(Rectangle((i*a, 0), a, h, fc='white', ec='black', lw=1.5))
                  R = a / (2 * np.sin(np.pi/N)); apothem = a / (2 * np.tan(np.pi/N))
-                 # 下底 (完美貼合)
                  ax.add_patch(RegularPolygon((a/2, -apothem), numVertices=N, radius=R, orientation=np.pi/N, fc='white', ec='black', lw=1.5))
-                 # 上底 (完美翻轉 180 度貼合)
                  ax.add_patch(RegularPolygon((a/2, h + apothem), numVertices=N, radius=R, orientation=(np.pi/N if N%2==0 else np.pi/N + np.pi), fc='white', ec='black', lw=1.5))
                - 【⚠️ 圓錐防呆】：底圓必須接在「弧線」正上方！請絕對照抄這段程式：
                  L = 10; r = 3; theta = 360 * (r / L)
-                 # 扇形開口朝上 (弧線在上方)
                  ax.add_patch(Wedge((0,0), L, 90 - theta/2, 90 + theta/2, fc='white', ec='black', lw=1.5))
-                 # 圓接在上方弧線的頂點
                  ax.add_patch(Circle((0, L + r), r, fc='white', ec='black', lw=1.5))
                - 使用 ax.set_aspect('equal') 與 ax.axis('off')。務必使用 ax.set_xlim 與 ax.set_ylim 包含全圖。
                - 存為 temp_diagram.png (bbox_inches='tight')。
@@ -158,15 +154,12 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  ax.spines['left'].set_visible(False)
                  ax.spines['bottom'].set_position('zero')
                  ax.get_yaxis().set_visible(False)
-                 # 【⚠️ 警告系統：不准亂縮放！強迫顯示完整的左右範圍！】
                  ax.set_xlim(ans - 6, ans + 6)
                  ax.set_xticks(np.arange(ans-5, ans+6, 1))
                  ax.plot([ans, ans], [0, 0.5], 'k-', lw=1.5) # 垂直線
-                 # 若向右 x_end = ans + 4；若向左 x_end = ans - 4
                  ax.annotate('', xy=(x_end, 0.5), xytext=(ans, 0.5), arrowprops=dict(arrowstyle='->', lw=1.5))
-                 ax.plot(ans, 0, marker='o', markersize=8, markerfacecolor='black', markeredgecolor='black', zorder=5) # 實心fc='black', 空心fc='white'
+                 ax.plot(ans, 0, marker='o', markersize=8, markerfacecolor='black', markeredgecolor='black', zorder=5)
                  ax.set_ylim(-0.5, 1)
-                 # 【⚠️ 圖片裁切防禦】：強制留白，確保箭頭不被切掉
                  ax.margins(0.15)
                - 存為 temp_diagram.png (bbox_inches='tight')。
             """

@@ -34,7 +34,6 @@ plt.rcParams.update({'font.size': 16})
 mpl.rcParams['svg.fonttype'] = 'none'
 
 def draw_dimension(ax, p1, p2, text, offset=0.5, mode='line', invert=False):
-    """給 AI 呼叫的尺寸標註專用輔助函式"""
     p1, p2 = np.array(p1), np.array(p2)
     vec = p2 - p1
     length = np.linalg.norm(vec)
@@ -50,9 +49,6 @@ def draw_dimension(ax, p1, p2, text, offset=0.5, mode='line', invert=False):
     ax.text(text_pos[0], text_pos[1], f'${text}$', ha='center', va='center', fontsize=16)
 
 def draw_grid_option(ax, title, active_indices):
-    """
-    🚀 三視圖專用：繪製包含淺色 3x3 底線與「斜線網底」實體的選項圖
-    """
     ax.set_xlim(-0.2, 3.2)
     ax.set_ylim(-0.2, 3.2)
     ax.set_aspect('equal')
@@ -74,10 +70,10 @@ def draw_grid_option(ax, title, active_indices):
 
 def draw_math_axes(ax):
     """
-    🚀 繪製帶有末端箭頭的標準數學直角坐標系
-    自動隱藏右上方框線，將 X/Y 軸移至原點，並在最末端精準加上箭頭與 x, y 標籤。
+    提供給 AI 呼叫的基礎設定。
+    注意：我們不在這裡畫箭頭，而是交給後處理 (post-processing) 來確保箭頭永遠在最終邊界！
     """
-    ax.set_axis_on() # 確保坐標軸不會被 AI 的 axis('off') 隱藏
+    ax.set_axis_on() 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_visible(True)
@@ -88,28 +84,6 @@ def draw_math_axes(ax):
     ax.spines['bottom'].set_linewidth(1.5)
     ax.spines['left'].set_color('black')
     ax.spines['bottom'].set_color('black')
-    
-    # 箭頭精準定位魔法：利用混合座標系，保證箭頭永遠在軸的最邊界末端 (x/y = 1)
-    ax.plot(1, 0, transform=ax.get_yaxis_transform(), clip_on=False, marker='>', color='black', markersize=8, zorder=10)
-    ax.plot(0, 1, transform=ax.get_xaxis_transform(), clip_on=False, marker='^', color='black', markersize=8, zorder=10)
-    
-    # 加上完美的數學斜體字標籤 x 與 y
-    ax.text(1.03, 0, '$x$', transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=18)
-    ax.text(0, 1.03, '$y$', transform=ax.get_xaxis_transform(), ha='center', va='bottom', fontsize=18)
-
-    # 🚀 消除原點重疊的 0 魔法：自訂刻度格式
-    def clean_ticks(x, pos):
-        if x == 0:
-            return '' # 遇到 0 直接隱藏
-        if float(x).is_integer():
-            return str(int(x)) # 把 2.0 變 2，讓畫面更乾淨
-        return str(x)
-        
-    ax.xaxis.set_major_formatter(ticker.FuncFormatter(clean_ticks))
-    ax.yaxis.set_major_formatter(ticker.FuncFormatter(clean_ticks))
-    
-    # 手動在原點的左下方補上一個漂亮的斜體 O (Origin)
-    ax.annotate('$O$', xy=(0, 0), xytext=(-8, -8), textcoords='offset points', fontsize=16, ha='right', va='top')
 
 def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
     if python_code is None or not isinstance(python_code, str) or python_code.strip() == "":
@@ -120,7 +94,7 @@ def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
         "RegularPolygon": RegularPolygon, "Wedge": Wedge, "Circle": Circle,
         "Arc": Arc, "np": np, "math": math, "draw_dimension": draw_dimension,
         "draw_grid_option": draw_grid_option,
-        "draw_math_axes": draw_math_axes  # 🚀 開放新函式給 AI 使用
+        "draw_math_axes": draw_math_axes
     }
     
     font_injection = f"""
@@ -145,6 +119,50 @@ plt.rcParams['axes.unicode_minus'] = False
         
         exec(code_to_run, env)
         
+        # 🚀 終極後處理魔法：等 AI 畫完後，系統強制接管畫布收尾！
+        is_math_axes = False
+        try:
+            pos_b = ax.spines['bottom'].get_position()
+            pos_l = ax.spines['left'].get_position()
+            if pos_b in ['zero', ('data', 0)] or pos_l in ['zero', ('data', 0)]:
+                is_math_axes = True
+        except: pass
+        
+        if is_math_axes:
+            # 1. 消除原點重疊的 0 魔法：自訂刻度格式
+            def clean_ticks(x, pos):
+                if abs(x) < 1e-7: return '' # 遇到 0 絕對隱藏！
+                if float(x).is_integer(): return str(int(x)) # 把 2.0 變 2
+                return str(x)
+                
+            ax.xaxis.set_major_formatter(ticker.FuncFormatter(clean_ticks))
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(clean_ticks))
+            
+            # 2. 獲取「AI 畫完所有幾何圖形後」的最終邊界
+            xmin, xmax = ax.get_xlim()
+            ymin, ymax = ax.get_ylim()
+            
+            # 強制向外延伸一點點 (5%)，讓箭頭有空間，不會跟最後一個數字擠在一起
+            x_margin = (xmax - xmin) * 0.05
+            y_margin = (ymax - ymin) * 0.05
+            ax.set_xlim(xmin, xmax + x_margin)
+            ax.set_ylim(ymin, ymax + y_margin)
+            
+            # 重新獲取延伸後的邊界
+            xmax_new = ax.get_xlim()[1]
+            ymax_new = ax.get_ylim()[1]
+            
+            # 3. 釘死箭頭：在最最末端畫上完美的實體箭頭 (zorder=100 保證在最上層)
+            ax.plot(xmax_new, 0, marker='>', color='black', markersize=8, clip_on=False, zorder=100)
+            ax.plot(0, ymax_new, marker='^', color='black', markersize=8, clip_on=False, zorder=100)
+            
+            # 4. 釘死標籤：在箭頭旁邊補上斜體的 x 與 y
+            ax.text(xmax_new + x_margin*0.5, 0, '$x$', ha='left', va='center', fontsize=18)
+            ax.text(0, ymax_new + y_margin*0.5, '$y$', ha='center', va='bottom', fontsize=18)
+            
+            # 5. 補上完美的斜體 O (Origin) 於原點左下方
+            ax.annotate('$O$', xy=(0, 0), xytext=(-12, -12), textcoords='offset points', fontsize=18, ha='right', va='top')
+
         if not os.path.exists(output_filename):
             for artist in ax.get_children():
                 artist.set_clip_on(False)
