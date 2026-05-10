@@ -7,7 +7,6 @@ from google import genai
 from google.genai import types
 
 def fetch_syllabus_context(client, model_name, edu_level, topic):
-    """先導任務：讓 AI 確立 108 課綱的學習內容與重點"""
     try:
         prompt = f"請列出台灣108課綱中，【{edu_level}】數學科關於單元【{topic}】的核心學習內容與次微概念。請用3到4個條列式重點說明即可，字數控制在100字內，這將作為後續嚴格命題的依據。"
         response = client.models.generate_content(
@@ -40,16 +39,17 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
     7. 【⚠️ 線段與圓弧符號明確區分】：
        - 若表示「線段」(如線段AB)，請正常使用 \\\\overline{{AB}}。
        - 若表示「圓弧」(如弧AB)，絕對禁止使用 \\\\overparen 或 \\\\wideparen！請一律替換為 \\\\overset{{\\\\frown}}{{AB}}，這是唯一能讓網頁與 Word 雙端皆正確顯示的語法。
-    8. 【⚠️ 幾何交點絕對準確防呆】：如果你出的圖形涉及「兩線相交」(如圓內兩弦相交、對角線交於 P 點)，先在程式碼中定義 P 點座標（例如 P = np.array([2, 3])），然後透過向量加減法算出 A, B, C, D 四個端點（例如 A = P + [dist, 0]），確保線段「物理上」絕對通過 P 點。嚴禁隨機猜測座標！
-    9. 【⚠️ 畫布完美滿版裁切防呆】：只要有繪圖，請「務必」精確算出所有點與圓形半徑的最小與最大 x, y 值，並加上 20% 的緩衝範圍，手動設定 `ax.set_xlim` 與 `ax.set_ylim`，絕對不准讓圖形被切斷！
+    8. 【⚠️ 幾何交點絕對準確防呆】：如果你出的圖形涉及「兩線相交」，先在程式碼中定義 P 點座標，再算出其他端點確保線段通過 P 點。嚴禁隨機猜測座標！
+    9. 【⚠️ 畫布完美滿版裁切防呆】：只要有繪圖，請「務必」設定 `ax.set_xlim` 與 `ax.set_ylim`，絕對不准讓圖形被切斷！
     10. 【🚀 換行與排版防呆】：
        - 題目本文結束後，四個選項 (A) (B) (C) (D) 必須「各自獨立換行」顯示，不可連在同一行。
        - 「解析」必須與選項之間空一行，且必須以「詳解：」或「解析：」開頭。
-       - 表示角度時，一律使用 LaTeX 語法（例如：$45^\\circ$），絕對嚴禁使用純文字的全形符號 ∘。
-    11. 【🚀 圖片排版定位 (非常重要)】：若題目文字中包含「如圖」，請「務必」在題目敘述結束後、選項 (A) 開始之前，獨立一行插入「[插入圖片]」這四個字，系統將用它來定位圖片顯示位置！
+       - 表示角度時，一律使用 LaTeX 語法（例如：$45^\\circ$），絕對嚴禁使用 ∘。
+    11. 【🚀 圖片排版定位 (非常重要)】：若題目文字中包含「如圖」，請「務必」在題目敘述結束後、選項 (A) 開始之前，獨立一行插入「[插入圖片]」這四個字！
     12. 【🛑 直角坐標系與防洩題規範】：
        - 若繪製 x 軸與 y 軸，正向「必須」有箭頭 (可使用 ax.annotate 畫出箭頭)。
-       - 【⚠️ 絕對禁止洩漏答案】：圖上只能畫出線條、標示直線代號 (如 L_1, L_2) 與坐標軸。嚴禁在圖形上標示出交點的確切座標值 (例如 P(2,3) 等數字) 或其他要求解的答案！
+       - 嚴禁在圖形上標示出交點的確切座標值或答案！
+    13. 【⚠️ 繁體中文防呆】：圖形的說明、圖表的標題、X/Y軸標籤、圖例，全部【必須】使用繁體中文。系統已內建中文支援，請大膽寫中文。
     """
     
     prompt = ""
@@ -59,7 +59,6 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
         if question_type == "一般幾何 (平面/複合圖形)":
             prompt = f"請根據主題：【{topic}】，生成一道【{difficulty}】難度的幾何題。\n{base_rules}\n請回傳 JSON：1. 'question_text': 包含題目、四個選項與解析。文字中若出現「如圖」，則必須給出 python_code。2. 'python_code': 使用 ax.set_aspect('equal') 與 ax.axis('off')，存為 temp_diagram.png。"
         elif question_type == "立體圖形三視圖 (積木堆疊)":
-            # 由 Python 端負責隨機挑選視角與陣列，強迫 AI 每次考不同的圖！
             target_view = random.choice(["前視圖", "上視圖", "右視圖"])
             h_matrix = f"[[{random.randint(0,3)}, {random.randint(0,3)}, {random.randint(0,2)}], " \
                        f"[{random.randint(0,3)}, {random.randint(1,3)}, {random.randint(0,3)}], " \
@@ -70,21 +69,37 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             {base_rules}
             請回傳 JSON：
             1. "question_text": 
-               - 題目指定測驗：【{target_view}】！
-               - 題目問：「如圖為正方體堆疊的立體圖形，請判斷其【{target_view}】為何？」
-               - 【⚠️ AI 空間推算防呆】：請務必根據我提供的 heights 陣列，精準推算出正確的 {target_view} 畫面，並確保它存在於選項中！
-               - 【⚠️ 選項排版絕對防呆】：四個選項必須是完美的 3x3 矩陣。請「絕對」使用全形 ⬛ 與 ⬜。每一列結束務必加上 `<br>`。例如："(A)<br>⬜⬜⬜<br>⬜⬛⬜<br>⬛⬛⬛"
+               - 題目問：「如圖，請判斷該立體圖形的【{target_view}】為何？」
+               - 因為選項 (A) (B) (C) (D) 已經繪製在圖片中了，所以在文字選項部分，請直接寫上：
+                 (A) 如圖
+                 (B) 如圖
+                 (C) 如圖
+                 (D) 如圖
+               - 【⚠️ 空間推算防呆】：請精準推算正確的 {target_view}，並確保它存在於其中一個選項中！
             2. "python_code": 
-               - 【⚠️ 答案同步與重力防呆】：絕對不可以使用 np.random！請完全照抄以下我給你的陣列（這是我給你的新題目數據）：
+               - 【⚠️ 絕對照抄繪圖架構】：系統已內建 `draw_grid_option`，請完全照抄以下架構，僅修改其中的 `black_indices` 來佈局四個選項 (1為左上，9為右下)：
+                 fig = plt.figure(figsize=(10, 5))
+                 
+                 # 左側畫立體主圖
+                 ax_main = fig.add_subplot(121, projection='3d')
                  heights = np.array({h_matrix})
                  cubes = np.zeros((3, 3, 3), dtype=bool)
                  for x in range(3):
                      for y in range(3):
-                         for z in range(heights[x, y]):
-                             cubes[x, y, z] = True
-               - 【⚠️ 正方體鎖定與純黑白防呆】：繪圖時「必須」加上這行：`ax.set_box_aspect((1, 1, 1))`
-               - 積木必須是純白底黑線，絕對不可有灰階陰影！請絕對照抄這行畫積木：`ax.voxels(cubes, facecolors='white', edgecolors='black', shade=False)`
-               - 使用 ax.view_init(elev=30, azim=-45)。隱藏座標軸。存為 temp_diagram.png (bbox_inches='tight')。
+                         for z in range(heights[x, y]): cubes[x, y, z] = True
+                 ax_main.voxels(cubes, facecolors='white', edgecolors='black', shade=False)
+                 ax_main.set_box_aspect((1, 1, 1))
+                 ax_main.view_init(elev=30, azim=-45)
+                 ax_main.axis('off')
+                 
+                 # 右側畫選項
+                 ax_a = fig.add_subplot(243); draw_grid_option(ax_a, "(A)", [1, 2, 3, 5]) # 請修改陣列設計混淆選項
+                 ax_b = fig.add_subplot(244); draw_grid_option(ax_b, "(B)", [4, 5, 6, 8]) # 請修改陣列設計混淆選項
+                 ax_c = fig.add_subplot(247); draw_grid_option(ax_c, "(C)", [2, 4, 5, 6]) # 請修改陣列設計混淆選項
+                 ax_d = fig.add_subplot(248); draw_grid_option(ax_d, "(D)", [7, 8, 9]) # 請修改陣列設計正確答案
+                 
+                 plt.subplots_adjust(wspace=0.1, hspace=0.3)
+               - 存為 temp_diagram.png (bbox_inches='tight')。
             """
         elif question_type == "立體圖形展開圖 (圓柱/圓錐/角柱)":
             prompt = f"""
@@ -118,7 +133,6 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             請回傳 JSON：
             1. "question_text": 包含題目、選項與解析。
             2. "python_code": 
-               - 【⚠️ 繁體中文防呆】：圖表的標題、X軸標籤、Y軸標籤、圖例，全部必須使用繁體中文。
                - 圖表背景強制全白，不可有灰階填色。直方圖長條必須緊密相連 (width=組距)。
                - 存為 temp_diagram.png (bbox_inches='tight')。
             """
@@ -180,7 +194,6 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                 except Exception: 
                     return {"question_text": "題目解析失敗 (符號無法辨識)，請點擊【換一題】重試。", "python_code": ""}
             
-            # ✅ 將清洗邏輯移到 JSON 解析成功之後，確保不破壞原始格式
             if "question_text" in result:
                 result["question_text"] = result["question_text"].replace("\\n", "\n")
 

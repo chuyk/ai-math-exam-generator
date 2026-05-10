@@ -63,7 +63,6 @@ col1, col2 = st.columns(2)
 
 with col1:
     edu_level = st.selectbox("教育階段 (108課綱)", ["國小", "國中", "高中"], index=1)
-    # 🚀 更新此處的 placeholder
     topics_input = st.text_input("單元主題", placeholder="例如：直角坐標平面, 二元一次方程式的圖形")
     difficulty = st.selectbox("整體難易度", ["基礎", "中等", "進階"], index=1)
 
@@ -113,10 +112,16 @@ if st.session_state.is_generating:
         
         task_list = ["純文字計算題 (無插圖)"]*num_single + ["一般幾何 (平面/複合圖形)"]*num_fill + ["會考非選素養題 (情境+兩小題)"]*num_essay
         
+        # 🚀 處理多單元分割 (若難度非進階，則平均分配輪替)
+        topic_list = [t.strip() for t in topics_input.split(',')]
+        
         for idx, q_type in enumerate(task_list):
-            status_text.text(f"⏳ 正在思考並繪製第 {idx+1}/{total_questions} 題... ({q_type})")
+            # 🚀 單元分配邏輯
+            current_topic = topics_input if difficulty == "進階" else topic_list[idx % len(topic_list)]
             
-            result = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_type, question_index=idx+1)
+            status_text.text(f"⏳ 正在思考並繪製第 {idx+1}/{total_questions} 題... ({current_topic})")
+            
+            result = generate_question(api_key, selected_model, edu_level, current_topic, difficulty, q_type, question_index=idx+1)
             
             if isinstance(result, list) and len(result) > 0: result = result[0]
             if not isinstance(result, dict): result = {"question_text": "格式異常", "python_code": ""}
@@ -132,6 +137,7 @@ if st.session_state.is_generating:
             
             new_q = {
                 "id": idx, "type": q_type, 
+                "topic": current_topic,  # 🚀 紀錄這題專屬的單元主題
                 "text": display_text, 
                 "code": p_code, 
                 "img": img_path if has_img else None
@@ -140,9 +146,8 @@ if st.session_state.is_generating:
             
             with preview_container:
                 st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
-                st.markdown(f"**第 {idx+1} 題**")
+                st.markdown(f"**第 {idx+1} 題** ({current_topic})")
                 
-                # 🚀 網頁顯示：遇到 [插入圖片] 標籤就斷開，把圖片塞中間
                 if "[插入圖片]" in display_text_web:
                     parts = display_text_web.split("[插入圖片]")
                     st.markdown(parts[0])
@@ -170,11 +175,10 @@ if st.session_state.questions and not st.session_state.is_generating:
         
         for idx, q_data in enumerate(st.session_state.questions):
             st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
-            st.markdown(f"**第 {idx+1} 題** ({q_data['type']})")
+            st.markdown(f"**第 {idx+1} 題** ({q_data['type']} - {q_data.get('topic', '')})")
             
             display_text_web = q_data['text'].replace(r'\\', r'\\\\')
             
-            # 同步套用圖片置中渲染
             if "[插入圖片]" in display_text_web:
                 parts = display_text_web.split("[插入圖片]")
                 st.markdown(parts[0])
@@ -186,7 +190,8 @@ if st.session_state.questions and not st.session_state.is_generating:
                 
             if st.button(f"🔄 換一題 (第 {idx+1} 題)", key=f"reroll_{idx}"):
                 with st.spinner("重新生成中..."):
-                    new_res = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_data['type'], True, q_data["text"], q_data["code"], question_index=idx+1)
+                    # 🚀 換題時，精準傳入該題原本分配到的單一主題
+                    new_res = generate_question(api_key, selected_model, edu_level, q_data.get('topic', topics_input), difficulty, q_data['type'], True, q_data["text"], q_data["code"], question_index=idx+1)
                     
                     if isinstance(new_res, list) and len(new_res) > 0: new_res = new_res[0]
                     if not isinstance(new_res, dict): new_res = {"question_text": "錯誤", "python_code": ""}
