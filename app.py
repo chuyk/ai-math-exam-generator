@@ -1,4 +1,3 @@
-# 檔案 4：app.py
 import streamlit as st
 import time
 import os
@@ -31,12 +30,13 @@ with st.sidebar:
     st.markdown("[👉 點此前往獲取金鑰](https://aistudio.google.com/app/api-keys)", unsafe_allow_html=True)
     auth_code = st.text_input("系統啟動碼", type="password")
     
+    # 🚀 這裡已經將大寫 B 改為小寫 b，完全符合官方 API 規範
     model_options = [
         "gemini-3-flash-preview", 
         "gemini-3.1-flash-lite", 
         "gemini-3.1-flash-lite-preview", 
-        "gemma-4-31B-it", 
-        "gemma-4-26B-A4B-it"
+        "gemma-4-31b-it", 
+        "gemma-4-26b-a4b-it"
     ]
     selected_model = st.selectbox("選擇 AI 模型", model_options, index=1)
     
@@ -104,7 +104,6 @@ if st.session_state.is_generating:
         
         img_path = f"temp_img_{idx}.png"
         
-        # 🚀 型別安全防呆：確保 p_code 絕對是字串，避免傳入 None
         p_code = result.get("python_code")
         if p_code is None: p_code = ""
             
@@ -150,7 +149,6 @@ if st.session_state.questions and not st.session_state.is_generating:
                 if isinstance(new_res, list) and len(new_res) > 0: new_res = new_res[0]
                 if not isinstance(new_res, dict): new_res = {"question_text": "錯誤", "python_code": ""}
                 
-                # 🚀 換一題時的安全防呆，避免 NoneType 當機
                 new_p_code = new_res.get("python_code")
                 if new_p_code is None: new_p_code = ""
                     

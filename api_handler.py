@@ -25,7 +25,6 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
     if not is_reroll and topic:
         syllabus_text = fetch_syllabus_context(client, model_name, edu_level, topic)
         
-    # 🚀 加入隨機亂數種子，徹底打破 AI 產出雙胞胎題目的慣性
     seed = random.randint(10000, 99999)
     
     base_rules = f"""
@@ -67,7 +66,9 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  u = (A - D) / np.linalg.norm(A - D); v = (C - D) / np.linalg.norm(C - D)
                  p1 = D + 0.5 * u; p2 = p1 + 0.5 * v; p3 = D + 0.5 * v
                  ax.plot([p1[0], p2[0], p3[0]], [p1[1], p2[1], p3[1]], 'k-', lw=1.5)
-               - 絕對不要寫死極端的 set_xlim 或 set_ylim，讓系統自動貼合。
+               - 【⚠️ 畫布完美滿版裁切防呆】：請精確算出所有點(A,B,C...) 的最小與最大 x, y 值，並加上 1 的緩衝：
+                 ax.set_xlim(min_x - 1, max_x + 1); ax.set_ylim(min_y - 1, max_y + 1)
+                 絕對禁止寫死極端數字如 -20 到 20 導致圖形太小！
                - 存為 temp_diagram.png。
             """
         elif question_type == "立體圖形三視圖 (積木堆疊)":
@@ -110,7 +111,8 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  R = a / (2 * np.sin(np.pi/N)); apothem = a / (2 * np.tan(np.pi/N))
                  ax.add_patch(RegularPolygon((a/2, -apothem), numVertices=N, radius=R, orientation=np.pi/N, fc='white', ec='black', lw=1.5))
                  ax.add_patch(RegularPolygon((a/2, h + apothem), numVertices=N, radius=R, orientation=(np.pi/N if N%2==0 else np.pi/N + np.pi), fc='white', ec='black', lw=1.5))
-               - 圓錐請確保底圓接在弧線正上方。存為 temp_diagram.png。
+               - 【⚠️ 畫布完美滿版裁切防呆】：請精確算出 x, y 的範圍，並強制使用 ax.set_xlim 與 ax.set_ylim 包覆圖形，避免留白太大。
+               - 存為 temp_diagram.png。
             """
         elif question_type == "統計圖表 (折線圖/圓餅圖/長條圖/直方圖)":
             prompt = f"""
@@ -157,11 +159,11 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                ### 簡要解答與評分指引
             2. "python_code": 回傳空字串 ""。
             """
-        else:
+        else: 
             prompt = f"""
             請生成一道【{difficulty}】難度，主題為【{topic}】的計算題。
             {base_rules}
-            【⚠️ 嚴格禁止圖文不符】：這是純文字計算題，所以題目文字中「絕對禁止」出現「如圖」、「右圖」、「下圖」等依賴圖形的字眼！
+            【⚠️ 嚴格禁止圖文不符】：這是純文字計算題，所以題目文字中「絕對禁止」出現「如圖」、「右圖」等字眼！
             請回傳 JSON：
             1. "question_text": 包含純文字題目、四個選項與詳解。
             2. "python_code": 絕對回傳空字串 ""。
@@ -172,7 +174,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             model=model_name,
             contents=prompt,
             config=types.GenerateContentConfig(
-                temperature=0.3, 
+                temperature=0.4, 
                 response_mime_type="application/json"
             )
         )
@@ -180,27 +182,18 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
         tick3 = chr(96) * 3
         raw_text = response.text.strip()
         
-        if raw_text.startswith(tick3 + "json"):
-            raw_text = raw_text[7:]
-        elif raw_text.startswith(tick3):
-            raw_text = raw_text[3:]
-        if raw_text.endswith(tick3):
-            raw_text = raw_text[:-3]
-            
+        if raw_text.startswith(tick3 + "json"): raw_text = raw_text[7:]
+        elif raw_text.startswith(tick3): raw_text = raw_text[3:]
+        if raw_text.endswith(tick3): raw_text = raw_text[:-3]
         raw_text = raw_text.strip()
 
         try:
             result = json.loads(raw_text)
         except json.JSONDecodeError:
             repaired_text = re.sub(r'(?<!\\)\\(?=[a-zA-Z])', r'\\\\', raw_text)
-            try:
-                result = json.loads(repaired_text)
-            except Exception as e:
-                print(f"JSON 二次修復失敗: {e}")
-                return {"question_text": "題目解析失敗 (特殊符號無法辨識)，請點擊【換一題】重試。", "python_code": ""}
+            try: result = json.loads(repaired_text)
+            except Exception as e: return {"question_text": "題目解析失敗 (特殊符號無法辨識)，請點擊【換一題】重試。", "python_code": ""}
                 
         return result
-        
     except Exception as e:
-        print(f"API 呼叫失敗: {e}")
         return {"question_text": f"伺服器連線異常 ({e})，請重試。", "python_code": ""}

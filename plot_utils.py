@@ -40,7 +40,6 @@ def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
     """
     執行 AI 產生的 matplotlib 程式碼，並將結果存為指定的圖片檔案。
     """
-    # 🚀 終極防呆：確保 python_code 絕對是字串，且不是 None (解決 TypeError)
     if python_code is None or not isinstance(python_code, str) or python_code.strip() == "":
         return False
         
@@ -68,14 +67,10 @@ def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
         exec(code_to_run, env)
         
         if not os.path.exists(output_filename):
-            # 🚀 強制攔截：無視 AI 設定的極限，重新計算邊界，並墊高周圍的留白防裁切
-            ax.autoscale(enable=True, axis='both', tight=True)
-            ax.relim()
-            ax.autoscale_view()
-            ax.margins(0.25)
+            # 移除舊版會互相干擾的自動縮放，完全信任 AI 精算出來的邊界
+            # 僅使用 tight_layout 與 bbox_inches='tight' 來去背裁切
             fig.tight_layout()
-            
-            plt.savefig(output_filename, dpi=300, bbox_inches='tight', pad_inches=0.25, transparent=True)
+            plt.savefig(output_filename, dpi=300, bbox_inches='tight', pad_inches=0.1, transparent=True)
             
         plt.close('all')
         return True
