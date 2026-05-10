@@ -57,22 +57,41 @@ def draw_grid_option(ax, title, active_indices):
     ax.set_aspect('equal')
     ax.axis('off')
     
-    # 1. 先畫出底部的 3x3 淺灰色格線 (完美九宮格)
     for i in range(1, 10):
         col = (i - 1) % 3
         row = 2 - (i - 1) // 3
         rect_bg = patches.Rectangle((col, row), 1, 1, linewidth=0.5, edgecolor='lightgray', facecolor='none')
         ax.add_patch(rect_bg)
         
-    # 2. 畫出實體方塊 (🚀 改為斜線網底 hatch='////'，適合考卷印刷)
     for i in active_indices:
         col = (i - 1) % 3
         row = 2 - (i - 1) // 3
         rect_solid = patches.Rectangle((col, row), 1, 1, linewidth=2.0, edgecolor='black', facecolor='white', hatch='////')
         ax.add_patch(rect_solid)
         
-    # 加上選項標題 (A), (B) 等
     ax.text(1.5, -0.4, title, ha='center', va='center', fontsize=18)
+
+def draw_math_axes(ax):
+    """
+    🚀 繪製帶有末端箭頭的標準數學直角坐標系
+    自動隱藏右上方框線，將 X/Y 軸移至原點，並在最末端精準加上箭頭與 x, y 標籤。
+    """
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_position('zero')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['left'].set_linewidth(1.5)
+    ax.spines['bottom'].set_linewidth(1.5)
+    
+    # 箭頭精準定位魔法：利用混合座標系，保證箭頭永遠在軸的最末端 (不受 xlim/ylim 影響)
+    # x 軸箭頭：x 為軸座標 (1 = 最右側邊界)，y 為資料座標 (0 = x軸所在高度)
+    ax.plot(1, 0, transform=ax.get_yaxis_transform(), clip_on=False, marker='>', color='black', markersize=8)
+    # y 軸箭頭：x 為資料座標 (0 = y軸所在位置)，y 為軸座標 (1 = 最上方邊界)
+    ax.plot(0, 1, transform=ax.get_xaxis_transform(), clip_on=False, marker='^', color='black', markersize=8)
+    
+    # 加上斜體的 x 與 y 標籤
+    ax.text(1.03, 0, 'x', transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=16, fontstyle='italic')
+    ax.text(0, 1.03, 'y', transform=ax.get_xaxis_transform(), ha='center', va='bottom', fontsize=16, fontstyle='italic')
 
 def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
     if python_code is None or not isinstance(python_code, str) or python_code.strip() == "":
@@ -82,7 +101,8 @@ def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
         "plt": plt, "mpl": mpl, "patches": patches, "Rectangle": Rectangle,
         "RegularPolygon": RegularPolygon, "Wedge": Wedge, "Circle": Circle,
         "Arc": Arc, "np": np, "math": math, "draw_dimension": draw_dimension,
-        "draw_grid_option": draw_grid_option
+        "draw_grid_option": draw_grid_option,
+        "draw_math_axes": draw_math_axes  # 🚀 開放新函式給 AI 使用
     }
     
     # 🚀 終極字體防禦：把 font.ttf 的載入邏輯硬塞進 AI 的程式碼最開頭
