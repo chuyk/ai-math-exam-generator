@@ -1,4 +1,4 @@
-# 檔案 1：plot_utils.py (已加回：強制裁切留白、draw_dimension)
+# 檔案 1：plot_utils.py (已加入：強制白邊墊高防裁切、draw_dimension)
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -47,13 +47,15 @@ def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
         exec(code_to_run, env)
         
         if not os.path.exists(output_filename):
-            # 🚀 強制攔截：不管 AI 怎麼設極限，系統強制重新貼合邊界裁切，解決畫布留白過大
+            # 🚀 強制攔截：無視 AI 設定的極限，重新計算邊界，並墊高周圍的留白防裁切
             ax.autoscale(enable=True, axis='both', tight=True)
             ax.relim()
             ax.autoscale_view()
-            ax.margins(0.1) # 給予 10% 舒適留白
+            ax.margins(0.25) # 內部留白增至 25%
+            fig.tight_layout() # 強制佈局
             
-            plt.savefig(output_filename, dpi=300, bbox_inches='tight', pad_inches=0.1, transparent=True)
+            # pad_inches=0.25 在存檔時再向外擴張物理白邊，保證文字不被切掉
+            plt.savefig(output_filename, dpi=300, bbox_inches='tight', pad_inches=0.25, transparent=True)
             
         plt.close('all')
         return True

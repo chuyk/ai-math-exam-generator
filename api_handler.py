@@ -1,4 +1,4 @@
-# 檔案 2：api_handler.py (已加回：完整 200 行提示詞、108課綱、圓弧與線段分流防呆)
+# 檔案 2：api_handler.py (已加入：圖文不符防呆、畫布裁切防呆)
 import json
 import random
 import re
@@ -6,7 +6,6 @@ from google import genai
 from google.genai import types
 
 def fetch_syllabus_context(client, model_name, edu_level, topic):
-    """先導任務：讓 AI 確立 108 課綱的學習內容與重點"""
     try:
         prompt = f"請列出台灣108課綱中，【{edu_level}】數學科關於單元【{topic}】的核心學習內容與次微概念。請用3到4個條列式重點說明即可，字數控制在100字內，這將作為後續嚴格命題的依據。"
         response = client.models.generate_content(
@@ -32,11 +31,13 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
     2. JSON 跳脫：所有的 LaTeX 語法反斜線「必須雙重跳脫」！例如：\\\\triangle。
     3. LaTeX 包覆：所有的數學符號、方程式，絕對必須用 $ 符號包覆起來，否則網頁無法渲染！
     4. 【考卷印刷視覺規範】：所有的繪圖絕對禁止使用灰色或彩色填滿！一律「純白底、純黑線」。
-    5. 【⚠️ Markdown 刪除線防呆】：若要表示分數或數字範圍，【絕對使用全形波浪號「～」或連字號「-」】（例如 50～60 或 50-60），嚴禁使用半形波浪號「~」，否則會觸發 Markdown 刪除線導致排版大亂！
-    6. 多樣性要求：請確保題型與圖形的多樣性，若為四邊形單元，請隨機考慮梯形、箏形、菱形等不同圖形，不要只出同一種。
+    5. 【⚠️ Markdown 刪除線防呆】：若要表示分數或數字範圍，【絕對使用全形波浪號「～」或連字號「-」】（例如 50～60 或 50-60），嚴禁使用半形波浪號「~」。
+    6. 多樣性要求：請確保題型與圖形的多樣性，若為四邊形單元，請隨機考慮梯形、箏形、菱形等不同圖形。
     7. 【⚠️ 線段與圓弧符號明確區分】：
        - 若表示「線段」(如線段AB)，請正常使用 \\\\overline{{AB}}。
-       - 若表示「圓弧」(如弧AB)，絕對禁止使用 \\\\overparen 或 \\\\wideparen！請一律替換為 \\\\overset{{\\\\frown}}{{AB}}，這是唯一能讓網頁與 Word 雙端皆正確顯示弧線的語法。
+       - 若表示「圓弧」(如弧AB)，絕對禁止使用 \\\\overparen 或 \\\\wideparen！請一律替換為 \\\\overset{{\\\\frown}}{{AB}}，這是唯一共通正確語法。
+    8. 【⚠️ 無圖防呆】：如果你的題目文字中出現「如圖」、「右圖」、「如圖所示」等字眼，你「絕對必須」在 python_code 產生對應的圖形程式碼！
+    9. 【⚠️ 畫布邊界防呆】：繪製圖形時，務必確保 set_xlim 與 set_ylim 足夠大，能夠完美包覆所有的幾何形狀與「頂點文字標籤(A, B, C)」，多留 20% 空白，絕對不可讓圖形超出邊界被裁切！
     """
     
     prompt = ""
@@ -63,7 +64,6 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  u = (A - D) / np.linalg.norm(A - D); v = (C - D) / np.linalg.norm(C - D)
                  p1 = D + 0.5 * u; p2 = p1 + 0.5 * v; p3 = D + 0.5 * v
                  ax.plot([p1[0], p2[0], p3[0]], [p1[1], p2[1], p3[1]], 'k-', lw=1.5)
-               - 絕對不要寫死極端的 set_xlim 或 set_ylim，讓系統自動貼合。
                - 存為 temp_diagram.png (bbox_inches='tight')。
             """
         elif question_type == "立體圖形三視圖 (積木堆疊)":
@@ -79,7 +79,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             1. "question_text": 
                - 題目指定測驗：【{target_view}】！
                - 題目問：「如圖為正方體堆疊的立體圖形，請判斷其【{target_view}】為何？」
-               - 【⚠️ 選項排版絕對防呆】：四個選項必須是完美的 3x3 矩陣。請「絕對」使用全形 ⬛ 與 ⬜。每一列結束務必加上 `<br>`。例如："(A)<br>⬜⬜⬜<br>⬜⬛⬜<br>⬛⬛⬛"
+               - 【⚠️ 選項排版絕對防呆】：四個選項必須是完美的 3x3 矩陣。請「絕對」使用全形 ⬛ 與 ⬜。每一列結束務必加上 `<br>`。
             2. "python_code": 
                - 【⚠️ 答案同步防呆】：請完全照抄：
                  heights = np.array({h_matrix})
@@ -153,13 +153,14 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                ### 簡要解答與評分指引
             2. "python_code": 回傳空字串 ""。
             """
-        else:
+        else: # 純文字計算題
             prompt = f"""
             請生成一道【{difficulty}】難度，主題為【{topic}】的計算題。
             {base_rules}
+            【⚠️ 嚴格禁止圖文不符】：這是純文字計算題，所以題目文字中「絕對禁止」出現「如圖」、「右圖」、「下圖」等依賴圖形的字眼！
             請回傳 JSON：
-            1. "question_text": 包含題目、四個選項與詳解。
-            2. "python_code": 回傳空字串 ""。
+            1. "question_text": 包含純文字題目、四個選項與詳解。
+            2. "python_code": 絕對回傳空字串 ""。
             """
 
     try:

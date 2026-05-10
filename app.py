@@ -1,4 +1,4 @@
-# 檔案 4：app.py (主介面與流程控制)
+# 檔案 4：app.py (已保留：漸進式渲染、重載機制與 UI 設定)
 import streamlit as st
 import time
 import os

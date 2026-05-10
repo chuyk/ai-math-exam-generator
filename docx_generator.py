@@ -1,4 +1,4 @@
-# 檔案 3：docx_generator.py (已加回：XML 深度掃描 OMML 數學字級熨斗)
+# 檔案 3：docx_generator.py (已保留：XML 深度掃描 OMML 數學字級熨斗)
 import os
 import pypandoc
 import re
