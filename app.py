@@ -1,7 +1,6 @@
 import streamlit as st
 import time
 import os
-import random
 from api_handler import generate_question
 from plot_utils import execute_ai_plot_code, clean_up_temp_images
 from docx_generator import generate_word_documents
@@ -30,7 +29,16 @@ with st.sidebar:
     api_key = st.text_input("輸入 Google API Key", type="password")
     st.markdown("[👉 點此前往獲取金鑰](https://aistudio.google.com/app/api-keys)", unsafe_allow_html=True)
     auth_code = st.text_input("系統啟動碼", type="password")
-    selected_model = st.selectbox("選擇 AI 模型", ["gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-3.1-flash-lite-preview", "gemma-4-31B-it", "gemma-4-26B-A4B-it"])
+    
+    # 完全採用您指定的模型列表
+    model_options = [
+        "gemini-3-flash-preview", 
+        "gemini-3.1-flash-lite", 
+        "gemini-3.1-flash-lite-preview", 
+        "gemma-4-31B-it", 
+        "gemma-4-26B-A4B-it"
+    ]
+    selected_model = st.selectbox("選擇 AI 模型", model_options)
     
     st.divider()
     st.header("📄 考卷格式設定")
@@ -53,7 +61,8 @@ col1, col2 = st.columns(2)
 with col1:
     edu_level = st.selectbox("教育階段 (108課綱)", ["國小", "國中", "高中"], index=1)
     topics_input = st.text_input("單元主題", placeholder="例如：平行四邊形, 幾何證明")
-    difficulty = st.selectbox("整體難易度", ["基礎", "中等", "進階"])
+    # 預設難易度改為中等 (index=1)
+    difficulty = st.selectbox("整體難易度", ["基礎", "中等", "進階"], index=1)
 
 with col2:
     num_single = st.number_input("單選題", min_value=0, max_value=20, value=5)
@@ -66,11 +75,18 @@ max_allowed = 36 if auth_code == "kai36" else 15
 if total_questions > max_allowed:
     st.error(f"❌ 最高僅支援 {max_allowed} 題。"); st.stop()
 
+# 🚀 這裡加入了「瞬間清除舊畫面」的重新渲染機制
 if st.button("🚀 開始漸進式生成考卷", type="primary", use_container_width=True):
-    if not topics_input: st.warning("請輸入單元！"); st.stop()
-    
+    if not topics_input: 
+        st.warning("請輸入單元！")
+        st.stop()
     st.session_state.is_generating = True
     st.session_state.questions = []
+    # 瞬間中斷並重新整理，讓舊考卷立刻消失
+    st.rerun()
+
+# 獨立在重新整理後執行的生成迴圈
+if st.session_state.is_generating:
     clean_up_temp_images([f"temp_img_{i}.png" for i in range(40)])
     
     st.divider()
@@ -78,10 +94,8 @@ if st.button("🚀 開始漸進式生成考卷", type="primary", use_container_w
     
     progress_bar = st.progress(0)
     status_text = st.empty()
-    
     preview_container = st.container()
     
-    # 按照使用者要求的數量建立題型清單
     task_list = ["純文字計算題 (無插圖)"]*num_single + ["一般幾何 (平面/複合圖形)"]*num_fill + ["會考非選素養題 (情境+兩小題)"]*num_essay
     
     for idx, q_type in enumerate(task_list):
@@ -118,6 +132,7 @@ if st.button("🚀 開始漸進式生成考卷", type="primary", use_container_w
     st.session_state.is_generating = False
     st.rerun()
 
+# 完整的編輯預覽與下載區
 if st.session_state.questions and not st.session_state.is_generating:
     st.divider()
     st.subheader("👁️ 考卷微調與下載區")

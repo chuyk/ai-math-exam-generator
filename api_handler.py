@@ -159,17 +159,29 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             )
         )
         
-        # 安全解析，不觸發引號問題
+        # 避開介面渲染崩潰的寫法：動態組合 Markdown 反引號
+        block_tick = "`" * 3
         raw_text = response.text.strip()
-        bt = "`" * 3
-        if raw_text.startswith(f"{bt}json"): 
+        
+        if raw_text.startswith(f"{block_tick}json"): 
             raw_text = raw_text[7:]
-        elif raw_text.startswith(bt): 
+        elif raw_text.startswith(block_tick): 
             raw_text = raw_text[3:]
-        if raw_text.endswith(bt): 
+            
+        if raw_text.endswith(block_tick): 
             raw_text = raw_text[:-3]
             
-        result = json.loads(raw_text.strip())
+        raw_text = raw_text.strip()
+
+        # ==========================================
+        # 🚀 終極防呆：強制修復 AI 漏掉跳脫的 LaTeX 反斜線
+        # ==========================================
+        # 1. 暴力將所有單反斜線變成雙反斜線 (避免 Invalid \escape)
+        raw_text = raw_text.replace('\\', '\\\\')
+        # 2. 將 JSON 格式需要的原本跳脫雙引號 (\") 還原，避免字串斷裂
+        raw_text = raw_text.replace('\\\\"', '\\"')
+
+        result = json.loads(raw_text)
         return result
         
     except Exception as e:
