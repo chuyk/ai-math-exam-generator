@@ -21,8 +21,6 @@ st.divider()
 
 if "questions" not in st.session_state:
     st.session_state.questions = []
-if "is_generating" not in st.session_state:
-    st.session_state.is_generating = False
 
 with st.sidebar:
     st.header("⚙️ 系統設定")
@@ -30,7 +28,6 @@ with st.sidebar:
     st.markdown("[👉 點此前往獲取金鑰](https://aistudio.google.com/app/api-keys)", unsafe_allow_html=True)
     auth_code = st.text_input("系統啟動碼", type="password")
     
-    # 🚀 這裡已經將大寫 B 改為小寫 b，完全符合官方 API 規範
     model_options = [
         "gemini-3-flash-preview", 
         "gemini-3.1-flash-lite", 
@@ -74,15 +71,17 @@ max_allowed = 36 if auth_code == "kai36" else 15
 if total_questions > max_allowed:
     st.error(f"❌ 最高僅支援 {max_allowed} 題。"); st.stop()
 
+# 🚀 建立一個「可拋棄式容器」，這是對付 Streamlit 畫面變淡殘留的終極武器
+final_view_container = st.empty()
+
 if st.button("🚀 開始漸進式生成考卷", type="primary", use_container_width=True):
     if not topics_input: 
         st.warning("請輸入單元！")
         st.stop()
-    st.session_state.is_generating = True
+        
+    # 🚀 絕招：在開始耗時運算前，先手動把舊容器炸掉，舊題目瞬間消失！
+    final_view_container.empty()
     st.session_state.questions = []
-    st.rerun()
-
-if st.session_state.is_generating:
     clean_up_temp_images([f"temp_img_{i}.png" for i in range(40)])
     
     st.divider()
@@ -103,7 +102,6 @@ if st.session_state.is_generating:
         if not isinstance(result, dict): result = {"question_text": "格式異常", "python_code": ""}
         
         img_path = f"temp_img_{idx}.png"
-        
         p_code = result.get("python_code")
         if p_code is None: p_code = ""
             
@@ -129,49 +127,51 @@ if st.session_state.is_generating:
             status_text.text("🛡️ 流量冷卻中 (8 秒)..."); time.sleep(8)
             
     status_text.text("✅ 生成完畢！您可以點擊下方按鈕匯出檔案，或針對單題重新生成。")
-    st.session_state.is_generating = False
+    # 產生完畢後強制重整畫面，讓生成的題目正確塞入下方的 final_view_container 中
     st.rerun()
 
-if st.session_state.questions and not st.session_state.is_generating:
-    st.divider()
-    st.subheader("👁️ 考卷微調與下載區")
-    
-    for idx, q_data in enumerate(st.session_state.questions):
-        st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
-        st.markdown(f"**第 {idx+1} 題** ({q_data['type']})")
-        st.markdown(q_data["text"])
-        if q_data["img"] and os.path.exists(q_data["img"]): st.image(q_data["img"], width=400)
-            
-        if st.button(f"🔄 換一題 (第 {idx+1} 題)", key=f"reroll_{idx}"):
-            with st.spinner("重新生成中..."):
-                new_res = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_data['type'], True, q_data["text"], q_data["code"], question_index=idx+1)
+# 🚀 使用 container 裝載最後的微調區塊，這樣下次按鈕一按，這裡就能被整組清空
+if st.session_state.questions:
+    with final_view_container.container():
+        st.divider()
+        st.subheader("👁️ 考卷微調與下載區")
+        
+        for idx, q_data in enumerate(st.session_state.questions):
+            st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
+            st.markdown(f"**第 {idx+1} 題** ({q_data['type']})")
+            st.markdown(q_data["text"])
+            if q_data["img"] and os.path.exists(q_data["img"]): st.image(q_data["img"], width=400)
                 
-                if isinstance(new_res, list) and len(new_res) > 0: new_res = new_res[0]
-                if not isinstance(new_res, dict): new_res = {"question_text": "錯誤", "python_code": ""}
-                
-                new_p_code = new_res.get("python_code")
-                if new_p_code is None: new_p_code = ""
+            if st.button(f"🔄 換一題 (第 {idx+1} 題)", key=f"reroll_{idx}"):
+                with st.spinner("重新生成中..."):
+                    new_res = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_data['type'], True, q_data["text"], q_data["code"], question_index=idx+1)
                     
-                has_img = execute_ai_plot_code(new_p_code, q_data["img"])
-                
-                st.session_state.questions[idx]["text"] = new_res.get("question_text", "失敗")
-                st.session_state.questions[idx]["code"] = new_p_code
-                st.session_state.questions[idx]["img"] = q_data["img"] if has_img else None
-                st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+                    if isinstance(new_res, list) and len(new_res) > 0: new_res = new_res[0]
+                    if not isinstance(new_res, dict): new_res = {"question_text": "錯誤", "python_code": ""}
+                    
+                    new_p_code = new_res.get("python_code")
+                    if new_p_code is None: new_p_code = ""
+                        
+                    has_img = execute_ai_plot_code(new_p_code, q_data["img"])
+                    
+                    st.session_state.questions[idx]["text"] = new_res.get("question_text", "失敗")
+                    st.session_state.questions[idx]["code"] = new_p_code
+                    st.session_state.questions[idx]["img"] = q_data["img"] if has_img else None
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    st.divider()
-    st.subheader("🖨️ 匯出正式考卷")
-    
-    template_path = "template.docx" if os.path.exists("template.docx") else None
-    
-    with st.spinner("準備檔案中..."):
-        docx_file, raw_md = generate_word_documents(st.session_state.questions, template_path)
-    
-    col_dl1, col_dl2 = st.columns(2)
-    with col_dl1:
-        if os.path.exists(docx_file):
-            with open(docx_file, "rb") as file:
-                st.download_button("📥 下載 Word 考卷 (.docx)", data=file, file_name="阿凱數學考卷.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
-    with col_dl2:
-        st.download_button("📥 下載 Markdown 原始碼 (.md)", data=raw_md, file_name="阿凱數學考卷_原始碼.md", mime="text/markdown", use_container_width=True)
+        st.divider()
+        st.subheader("🖨️ 匯出正式考卷")
+        
+        template_path = "template.docx" if os.path.exists("template.docx") else None
+        
+        with st.spinner("準備檔案中..."):
+            docx_file, raw_md = generate_word_documents(st.session_state.questions, template_path)
+        
+        col_dl1, col_dl2 = st.columns(2)
+        with col_dl1:
+            if os.path.exists(docx_file):
+                with open(docx_file, "rb") as file:
+                    st.download_button("📥 下載 Word 考卷 (.docx)", data=file, file_name="阿凱數學考卷.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
+        with col_dl2:
+            st.download_button("📥 下載 Markdown 原始碼 (.md)", data=raw_md, file_name="阿凱數學考卷_原始碼.md", mime="text/markdown", use_container_width=True)
