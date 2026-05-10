@@ -12,38 +12,33 @@ import platform
 import urllib.request
 from matplotlib import font_manager
 
-# 🚀 終極中文字體防禦機制 (自動下載 NotoSansTC 或掃描本機字體)
-plt.rcParams.update({'font.size': 16})
-plt.rcParams['axes.unicode_minus'] = False
-
+# 🚀 終極中文字體防禦機制 (強化註冊與快取突破)
 def setup_chinese_font():
     font_url = 'https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansTC/NotoSansTC-Regular.ttf'
     font_path = 'NotoSansTC-Regular.ttf'
-    success = False
     
-    # 1. 嘗試下載雲端字體
+    # 1. 確保字體檔案存在
     if not os.path.exists(font_path):
         try:
             urllib.request.urlretrieve(font_url, font_path)
-            success = True
-        except:
-            pass
-    else:
-        success = True
-
-    # 2. 下載成功則直接套用
-    if success:
+        except Exception as e:
+            print(f"⚠️ 字體下載失敗: {e}")
+    
+    # 2. 強制加入字體庫並獲取準確的字體名稱 (突破快取限制)
+    if os.path.exists(font_path):
         try:
             font_manager.fontManager.addfont(font_path)
-            plt.rcParams['font.family'] = font_manager.FontProperties(fname=font_path).get_name()
+            prop = font_manager.FontProperties(fname=font_path)
+            plt.rcParams['font.family'] = prop.get_name()
+            plt.rcParams['axes.unicode_minus'] = False
             return
-        except:
-            pass
+        except Exception as e:
+            print(f"⚠️ 字體註冊失敗: {e}")
 
-    # 3. 若下載失敗，啟動動態硬碟掃描
+    # 3. 備案：掃描系統本機字體
     sys_os = platform.system()
-    search_dirs = ['C:/Windows/Fonts'] if sys_os == 'Windows' else ['/System/Library/Fonts', '/Library/Fonts', os.path.expanduser('~/Library/Fonts')]
-    target_files = ['msjh.ttc', 'msjh.ttf', 'pingfang.ttc']
+    search_dirs = ['C:/Windows/Fonts'] if sys_os == 'Windows' else ['/System/Library/Fonts', '/Library/Fonts', os.path.expanduser('~/Library/Fonts'), '/usr/share/fonts']
+    target_files = ['msjh.ttc', 'msjh.ttf', 'pingfang.ttc', 'notosanscjk-regular.ttc']
     
     for d in search_dirs:
         if not os.path.exists(d): continue
@@ -53,16 +48,19 @@ def setup_chinese_font():
                     try:
                         f_path = os.path.join(root, f)
                         font_manager.fontManager.addfont(f_path)
-                        plt.rcParams['font.family'] = font_manager.FontProperties(fname=f_path).get_name()
+                        prop = font_manager.FontProperties(fname=f_path)
+                        plt.rcParams['font.family'] = prop.get_name()
+                        plt.rcParams['axes.unicode_minus'] = False
                         return
                     except:
                         pass
                         
-    # 4. 最終備案
+    # 4. 最終妥協方案
     plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] if sys_os == 'Windows' else ['PingFang TC', 'Noto Sans CJK TC']
 
 # 執行字體初始化
 setup_chinese_font()
+plt.rcParams.update({'font.size': 16})
 mpl.rcParams['svg.fonttype'] = 'none'
 
 def draw_dimension(ax, p1, p2, text, offset=0.5, mode='line', invert=False):

@@ -77,7 +77,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  (D) 如圖
                - 【⚠️ 空間推算防呆】：請精準推算正確的 {target_view}，並確保它存在於其中一個選項中！
             2. "python_code": 
-               - 【⚠️ 絕對照抄繪圖架構】：系統已內建 `draw_grid_option`，請完全照抄以下架構，僅修改其中的 `black_indices` 來佈局四個選項 (1為左上，9為右下)：
+               - 【⚠️ 絕對照抄繪圖架構】：系統已內建 `draw_grid_option(ax, title, active_indices)` 函式，會自動畫出包含 3x3 淺色底線的九宮格與粗黑線實體。請完全照抄以下架構，【絕對禁止】自行撰寫繪製 2D 視圖的邏輯，僅修改 `active_indices` 陣列來佈局選項 (1為左上，9為右下)：
                  fig = plt.figure(figsize=(10, 5))
                  
                  # 左側畫立體主圖
@@ -92,7 +92,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  ax_main.view_init(elev=30, azim=-45)
                  ax_main.axis('off')
                  
-                 # 右側畫選項
+                 # 右側畫選項 (強迫使用內建 3x3 九宮格繪圖函式)
                  ax_a = fig.add_subplot(243); draw_grid_option(ax_a, "(A)", [1, 2, 3, 5]) # 請修改陣列設計混淆選項
                  ax_b = fig.add_subplot(244); draw_grid_option(ax_b, "(B)", [4, 5, 6, 8]) # 請修改陣列設計混淆選項
                  ax_c = fig.add_subplot(247); draw_grid_option(ax_c, "(C)", [2, 4, 5, 6]) # 請修改陣列設計混淆選項
