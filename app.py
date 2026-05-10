@@ -112,11 +112,9 @@ if st.session_state.is_generating:
         
         task_list = ["純文字計算題 (無插圖)"]*num_single + ["一般幾何 (平面/複合圖形)"]*num_fill + ["會考非選素養題 (情境+兩小題)"]*num_essay
         
-        # 🚀 處理多單元分割 (若難度非進階，則平均分配輪替)
         topic_list = [t.strip() for t in topics_input.split(',')]
         
         for idx, q_type in enumerate(task_list):
-            # 🚀 單元分配邏輯
             current_topic = topics_input if difficulty == "進階" else topic_list[idx % len(topic_list)]
             
             status_text.text(f"⏳ 正在思考並繪製第 {idx+1}/{total_questions} 題... ({current_topic})")
@@ -137,7 +135,7 @@ if st.session_state.is_generating:
             
             new_q = {
                 "id": idx, "type": q_type, 
-                "topic": current_topic,  # 🚀 紀錄這題專屬的單元主題
+                "topic": current_topic,
                 "text": display_text, 
                 "code": p_code, 
                 "img": img_path if has_img else None
@@ -190,7 +188,6 @@ if st.session_state.questions and not st.session_state.is_generating:
                 
             if st.button(f"🔄 換一題 (第 {idx+1} 題)", key=f"reroll_{idx}"):
                 with st.spinner("重新生成中..."):
-                    # 🚀 換題時，精準傳入該題原本分配到的單一主題
                     new_res = generate_question(api_key, selected_model, edu_level, q_data.get('topic', topics_input), difficulty, q_data['type'], True, q_data["text"], q_data["code"], question_index=idx+1)
                     
                     if isinstance(new_res, list) and len(new_res) > 0: new_res = new_res[0]
@@ -199,11 +196,13 @@ if st.session_state.questions and not st.session_state.is_generating:
                     new_p_code = new_res.get("python_code")
                     if new_p_code is None: new_p_code = ""
                         
-                    has_img = execute_ai_plot_code(new_p_code, q_data["img"])
+                    # 🚀 修正 TypeError：如果這題原本沒有圖片，分配一個預設路徑給它
+                    target_img_path = q_data["img"] if q_data["img"] else f"temp_img_{idx}.png"
+                    has_img = execute_ai_plot_code(new_p_code, target_img_path)
                     
                     st.session_state.questions[idx]["text"] = new_res.get("question_text", "失敗")
                     st.session_state.questions[idx]["code"] = new_p_code
-                    st.session_state.questions[idx]["img"] = q_data["img"] if has_img else None
+                    st.session_state.questions[idx]["img"] = target_img_path if has_img else None
                     st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
