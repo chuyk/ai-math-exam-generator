@@ -49,8 +49,8 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
     12. 【🛑 直角坐標系與防洩題規範】：
        - 若繪製 x 軸與 y 軸，正向「必須」有箭頭 (可使用 ax.annotate 畫出箭頭)。
        - 嚴禁在圖形上標示出交點的確切座標值或答案！
-    13. 【⚠️ 繁體中文防呆】：圖形的說明、圖表的標題、X/Y軸標籤、圖例，全部【必須】使用繁體中文。系統已內建中文支援，請大膽寫中文。
-    14. 【⚠️ 三視圖平面圖絕對防呆】：只要題目或圖形要求畫出「前視圖」、「上視圖」或「右視圖」的平面圖形，【絕對禁止】自己用 Rectangle 拼湊！【必須】呼叫系統內建的 `draw_grid_option(ax, title, active_indices)` 函式，它會自動畫出包含 3x3 淺色底線的完美九宮格。
+    13. 【⚠️ 繁體中文防呆 (最高原則)】：無論是哪種題型，圖形的幾何頂點說明、圖表的標題、X/Y軸標籤、圖例等，全部【必須】使用繁體中文。系統已內建中文支援，請大膽寫中文。
+    14. 【⚠️ 三視圖平面圖絕對防呆】：只要題目或圖形要求畫出「前視圖」、「上視圖」或「右視圖」的平面圖形，【絕對禁止】自己用 Rectangle 拼湊！【必須】呼叫系統內建的 `draw_grid_option(ax, title, active_indices)` 函式，它會自動畫出包含 3x3 淺色底線與斜線網底的完美九宮格。
        - 例如畫出三個視圖的語法必須是：
          ax1 = fig.add_subplot(131); draw_grid_option(ax1, "前視圖", [1,4,7,8,9])
          ax2 = fig.add_subplot(132); draw_grid_option(ax2, "上視圖", [7,8,9])
@@ -82,7 +82,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  (D) 如圖
                - 【⚠️ 空間推算防呆】：請精準推算正確的 {target_view}，並確保它存在於其中一個選項中！
             2. "python_code": 
-               - 【⚠️ 絕對照抄繪圖架構】：系統已內建 `draw_grid_option(ax, title, active_indices)` 函式，會自動畫出包含 3x3 淺色底線的九宮格與粗黑線實體。請完全照抄以下架構，【絕對禁止】自行撰寫繪製 2D 視圖的邏輯，僅修改 `active_indices` 陣列來佈局選項 (1為左上，9為右下)：
+               - 【⚠️ 絕對照抄繪圖架構】：系統已內建 `draw_grid_option` 函式。請完全照抄以下架構，【絕對禁止】自行撰寫繪製 2D 視圖的邏輯，僅修改 `active_indices` 陣列來佈局選項 (1為左上，9為右下)：
                  fig = plt.figure(figsize=(10, 5))
                  
                  # 左側畫立體主圖

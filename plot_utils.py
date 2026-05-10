@@ -8,30 +8,28 @@ from matplotlib.patches import Rectangle, RegularPolygon, Wedge, Circle, Arc
 import numpy as np
 import math
 import os
-import urllib.request
 from matplotlib import font_manager
 
-# 確保基礎環境準備好字體檔案
-FONT_PATH = 'NotoSansTC-Regular.ttf'
-FONT_URL = 'https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansTC/NotoSansTC-Regular.ttf'
+# 🚀 終極中文字體防禦：強制綁定專案目錄下的 font.ttf
+FONT_PATH = 'font.ttf'
 
-if not os.path.exists(FONT_PATH):
-    try:
-        print("正在下載 NotoSansTC 字體...")
-        urllib.request.urlretrieve(FONT_URL, FONT_PATH)
-    except Exception as e:
-        print(f"⚠️ 字體下載失敗: {e}")
-
-try:
+def setup_chinese_font():
     if os.path.exists(FONT_PATH):
-        font_manager.fontManager.addfont(FONT_PATH)
-        prop = font_manager.FontProperties(fname=FONT_PATH)
-        plt.rcParams['font.family'] = prop.get_name()
-except Exception:
-    pass
+        try:
+            font_manager.fontManager.addfont(FONT_PATH)
+            prop = font_manager.FontProperties(fname=FONT_PATH)
+            plt.rcParams['font.family'] = prop.get_name()
+            print("✅ 成功載入本地字體: font.ttf")
+        except Exception as e:
+            print(f"⚠️ 載入 font.ttf 失敗: {e}")
+    else:
+        print("⚠️ 找不到 font.ttf，請確認已上傳至 app.py 同目錄！")
+        
+    plt.rcParams['axes.unicode_minus'] = False
 
+# 執行字體初始化
+setup_chinese_font()
 plt.rcParams.update({'font.size': 16})
-plt.rcParams['axes.unicode_minus'] = False
 mpl.rcParams['svg.fonttype'] = 'none'
 
 def draw_dimension(ax, p1, p2, text, offset=0.5, mode='line', invert=False):
@@ -52,25 +50,28 @@ def draw_dimension(ax, p1, p2, text, offset=0.5, mode='line', invert=False):
 
 def draw_grid_option(ax, title, active_indices):
     """
-    🚀 三視圖專用：繪製包含淺色 3x3 底線與粗黑線實體的選項圖
+    🚀 三視圖專用：繪製包含淺色 3x3 底線與「斜線網底」實體的選項圖
     """
     ax.set_xlim(-0.2, 3.2)
     ax.set_ylim(-0.2, 3.2)
     ax.set_aspect('equal')
     ax.axis('off')
     
+    # 1. 先畫出底部的 3x3 淺灰色格線 (完美九宮格)
     for i in range(1, 10):
         col = (i - 1) % 3
         row = 2 - (i - 1) // 3
         rect_bg = patches.Rectangle((col, row), 1, 1, linewidth=0.5, edgecolor='lightgray', facecolor='none')
         ax.add_patch(rect_bg)
         
+    # 2. 畫出實體方塊 (🚀 改為斜線網底 hatch='////'，適合考卷印刷)
     for i in active_indices:
         col = (i - 1) % 3
         row = 2 - (i - 1) // 3
-        rect_solid = patches.Rectangle((col, row), 1, 1, linewidth=2.5, edgecolor='black', facecolor='white')
+        rect_solid = patches.Rectangle((col, row), 1, 1, linewidth=2.0, edgecolor='black', facecolor='white', hatch='////')
         ax.add_patch(rect_solid)
         
+    # 加上選項標題 (A), (B) 等
     ax.text(1.5, -0.4, title, ha='center', va='center', fontsize=18)
 
 def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
@@ -84,7 +85,7 @@ def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
         "draw_grid_option": draw_grid_option
     }
     
-    # 🚀 終極字體防禦：把字體載入邏輯「硬塞」進 AI 的程式碼最開頭，強迫它在自己的 scope 內執行
+    # 🚀 終極字體防禦：把 font.ttf 的載入邏輯硬塞進 AI 的程式碼最開頭
     font_injection = f"""
 import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
