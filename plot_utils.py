@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.patches as patches
 from matplotlib.patches import Rectangle, RegularPolygon, Wedge, Circle, Arc
+import matplotlib.ticker as ticker  # 🚀 新增 ticker 用來清洗醜醜的刻度
 import numpy as np
 import math
 import os
@@ -92,9 +93,23 @@ def draw_math_axes(ax):
     ax.plot(1, 0, transform=ax.get_yaxis_transform(), clip_on=False, marker='>', color='black', markersize=8, zorder=10)
     ax.plot(0, 1, transform=ax.get_xaxis_transform(), clip_on=False, marker='^', color='black', markersize=8, zorder=10)
     
-    # 加上完美的數學斜體字標籤 $x$ 與 $y$
+    # 加上完美的數學斜體字標籤 x 與 y
     ax.text(1.03, 0, '$x$', transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=18)
     ax.text(0, 1.03, '$y$', transform=ax.get_xaxis_transform(), ha='center', va='bottom', fontsize=18)
+
+    # 🚀 消除原點重疊的 0 魔法：自訂刻度格式
+    def clean_ticks(x, pos):
+        if x == 0:
+            return '' # 遇到 0 直接隱藏
+        if float(x).is_integer():
+            return str(int(x)) # 把 2.0 變 2，讓畫面更乾淨
+        return str(x)
+        
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(clean_ticks))
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(clean_ticks))
+    
+    # 手動在原點的左下方補上一個漂亮的斜體 O (Origin)
+    ax.annotate('$O$', xy=(0, 0), xytext=(-8, -8), textcoords='offset points', fontsize=16, ha='right', va='top')
 
 def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
     if python_code is None or not isinstance(python_code, str) or python_code.strip() == "":
