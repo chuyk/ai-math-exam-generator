@@ -2,7 +2,7 @@
 import json
 import random
 import re
-import time  # 🚀 新增：處理 429 重試等待
+import time
 from google import genai
 from google.genai import types
 
@@ -69,7 +69,6 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
         else: 
             prompt = f"請生成一道【{difficulty}】難度，主題為【{topic}】的計算題。\n{base_rules}\n【⚠️ 禁止圖文不符】：文字禁止出現「如圖」字眼。\n請回傳 JSON：1. 'question_text': 包含純文字題目、選項與詳解。2. 'python_code': 空字串。"
 
-    # 🚀 API 呼叫的自動重試與異常處理機制
     max_retries = 3
     for attempt in range(max_retries):
         try:
@@ -84,23 +83,28 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             if raw_text.startswith(tick3 + "json"): raw_text = raw_text[7:]
             elif raw_text.startswith(tick3): raw_text = raw_text[3:]
             if raw_text.endswith(tick3): raw_text = raw_text[:-3]
-            
-            # 🚀 終極清洗：將 AI 產出的「字面 \n」轉為真正的換行符
-            raw_text = raw_text.replace("\\n", "\n").strip()
+            raw_text = raw_text.strip()
 
             try:
                 result = json.loads(raw_text)
             except json.JSONDecodeError:
                 repaired_text = re.sub(r'(?<!\\)\\(?=[a-zA-Z])', r'\\\\', raw_text)
-                try: result = json.loads(repaired_text)
-                except Exception: return {"question_text": "題目解析失敗 (符號無法辨識)，請重新生成。", "python_code": ""}
+                try: 
+                    result = json.loads(repaired_text)
+                except Exception: 
+                    return {"question_text": "題目解析失敗 (符號無法辨識)，請點擊【換一題】重試。", "python_code": ""}
+            
+            # ✅ 將清洗邏輯移到 JSON 解析成功之後，確保不破壞原始格式
+            if "question_text" in result:
+                result["question_text"] = result["question_text"].replace("\\n", "\n")
+
             return result
 
         except Exception as e:
             error_msg = str(e)
             if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
                 if attempt < max_retries - 1:
-                    time.sleep(6 + attempt * 2) # 暫停重試
+                    time.sleep(6 + attempt * 2) 
                     continue 
                 else:
                     return {"question_text": "🚨 伺服器連續拒絕連線。若持續發生，代表已達「每日額度上限」，請更換 API Key！", "python_code": ""}
