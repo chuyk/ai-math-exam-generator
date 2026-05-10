@@ -50,7 +50,25 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
        - 若為直角坐標幾何，【絕對禁止】自己畫箭頭、寫 O、x 或 y，也【絕對禁止】設定刻度 (不要印出任何數字)！請直接照抄題型專屬的坐標系繪圖程式碼。
        - 嚴禁在圖形上標示出交點的確切座標值或答案！
     13. 【⚠️ 繁體中文防呆 (最高原則)】：無論是哪種題型，圖形的幾何頂點說明、圖表的標題、X/Y軸標籤、圖例等，全部【必須】使用繁體中文。系統已內建中文支援，請大膽寫中文。
-    14. 【⚠️ 三視圖平面圖絕對防呆】：只要題目或圖形要求畫出「前視圖」、「上視圖」或「右視圖」的平面圖形，【絕對禁止】自己用 Rectangle 拼湊！【必須】呼叫系統內建的 `draw_grid_option(ax, title, active_indices)` 函式，它會自動畫出包含 3x3 淺色底線與斜線網底的完美九宮格。
+    14. 【⚠️ 三視圖平面圖絕對防呆】：只要題目或圖形要求畫出「前視圖」、「上視圖」或「右視圖」的平面圖形，【絕對禁止】自己用 Rectangle 拼湊！【必須】呼叫系統內建的 `draw_grid_option(ax, title, active_indices)` 函式。
+    15. 【⚠️ 全域數線與不等式防呆 (最高權限)】：無論本題被分配到哪種題型，只要涉及「不等式」且你需要繪製「數線」，【絕對禁止】將解集線條與數線重疊！你【必須】強制照抄以下「架高式數線」的程式碼架構：
+        # 1. 繪圖前，請先根據你的解答定義以下三個變數：
+        # ans = 邊界點數字 (整數)
+        # x_end = 若向右則 ans+4，若向左則 ans-4
+        # marker_color = 若包含等號(實心)填 'black'，若不含等號(空心)填 'white'
+        # 2. 絕對照抄以下繪圖碼：
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_position('zero')
+        ax.get_yaxis().set_visible(False)
+        ax.set_xlim(ans - 6, ans + 6)
+        ax.set_xticks(np.arange(ans-5, ans+6, 1))
+        ax.plot([ans, ans], [0, 0.5], 'k-', lw=1.5)
+        ax.annotate('', xy=(x_end, 0.5), xytext=(ans, 0.5), arrowprops=dict(arrowstyle='->', lw=1.5))
+        ax.plot(ans, 0, marker='o', markersize=8, markerfacecolor=marker_color, markeredgecolor='black', zorder=5)
+        ax.set_ylim(-0.5, 1)
+        ax.margins(0.15)
     """
     
     prompt = ""
@@ -156,20 +174,8 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                - 題目明確問：「求此不等式的解為何？」
                - 四個選項必須是純文字的數學範圍（如 (A) $x > 3$）。數學式必須加上 $ 包覆。範圍隨機向右或向左。
             2. "python_code": 
-               - 【⚠️ 完美單一數線防呆】：請絕對照抄以下畫法，不准用 ax.axhline，直接利用 spines 作為唯一數線：
-                 ax.spines['top'].set_visible(False)
-                 ax.spines['right'].set_visible(False)
-                 ax.spines['left'].set_visible(False)
-                 ax.spines['bottom'].set_position('zero')
-                 ax.get_yaxis().set_visible(False)
-                 ax.set_xlim(ans - 6, ans + 6)
-                 ax.set_xticks(np.arange(ans-5, ans+6, 1))
-                 ax.plot([ans, ans], [0, 0.5], 'k-', lw=1.5) # 垂直線
-                 ax.annotate('', xy=(x_end, 0.5), xytext=(ans, 0.5), arrowprops=dict(arrowstyle='->', lw=1.5))
-                 ax.plot(ans, 0, marker='o', markersize=8, markerfacecolor='black', markeredgecolor='black', zorder=5)
-                 ax.set_ylim(-0.5, 1)
-                 ax.margins(0.15)
                - 存為 temp_diagram.png (bbox_inches='tight')。
+               - 請嚴格遵守 base_rules 第15點的「架高式數線」防呆畫法！
             """
         elif question_type == "會考非選素養題 (情境+兩小題)":
             prompt = f"請根據主題：【{topic}】，設計一道符合台灣教育會考風格的非選擇題。\n{base_rules}\n1. 情境鋪陳 5 行以上。2. 固定兩小題。3. 不預設變數。\n請回傳 JSON：1. 'question_text': 包含 ### 題目情境、### 自我檢核、### 簡要解答。2. 'python_code': 空字串。"

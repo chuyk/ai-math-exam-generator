@@ -63,19 +63,31 @@ col1, col2 = st.columns(2)
 
 with col1:
     edu_level = st.selectbox("教育階段 (108課綱)", ["國小", "國中", "高中"], index=1)
-    topics_input = st.text_input("單元主題", placeholder="例如：直角坐標平面, 二元一次方程式的圖形")
-    difficulty = st.selectbox("整體難易度", ["基礎", "中等", "進階"], index=1)
+    topics_input = st.text_input("單元主題", placeholder="例如：直角坐標平面, 一元一次不等式的圖解")
+    
+    st.markdown("**📊 難易度分配 (需與總題數一致)**")
+    col_d1, col_d2, col_d3 = st.columns(3)
+    with col_d1: num_easy = st.number_input("基礎題數", min_value=0, value=1)
+    with col_d2: num_medium = st.number_input("中等題數", min_value=0, value=2)
+    with col_d3: num_hard = st.number_input("進階題數", min_value=0, value=1)
 
 with col2:
+    st.markdown("**📝 題型分配**")
     num_single = st.number_input("單選題", min_value=0, max_value=20, value=2)
     num_fill = st.number_input("填充題", min_value=0, max_value=20, value=2)
-    num_essay = st.number_input("素養題", min_value=0, max_value=5, value=1)
+    num_essay = st.number_input("素養題", min_value=0, max_value=5, value=0)
 
 total_questions = num_single + num_fill + num_essay
+total_diff_count = num_easy + num_medium + num_hard
 max_allowed = 36 if auth_code == "kai36" else 15
 
 if total_questions > max_allowed:
     st.error(f"❌ 最高僅支援 {max_allowed} 題。")
+    st.stop()
+
+# 🚨 檢查總題數是否與難易度分配一致
+if total_questions != total_diff_count:
+    st.error(f"❌ 題型總數 ({total_questions} 題) 與 難易度總數 ({total_diff_count} 題) 不一致，請重新分配！")
     st.stop()
 
 start_btn = st.button("🚀 開始漸進式生成考卷", type="primary", use_container_width=True)
@@ -111,15 +123,16 @@ if st.session_state.is_generating:
         preview_container = st.container()
         
         task_list = ["純文字計算題 (無插圖)"]*num_single + ["一般幾何 (平面/複合圖形)"]*num_fill + ["會考非選素養題 (情境+兩小題)"]*num_essay
+        difficulty_list = ["基礎"]*num_easy + ["中等"]*num_medium + ["進階"]*num_hard
         
         topic_list = [t.strip() for t in topics_input.split(',')]
         
-        for idx, q_type in enumerate(task_list):
-            current_topic = topics_input if difficulty == "進階" else topic_list[idx % len(topic_list)]
+        for idx, (q_type, current_diff) in enumerate(zip(task_list, difficulty_list)):
+            current_topic = topics_input if current_diff == "進階" else topic_list[idx % len(topic_list)]
             
-            status_text.text(f"⏳ 正在思考並繪製第 {idx+1}/{total_questions} 題... ({current_topic})")
+            status_text.text(f"⏳ 正在思考並繪製第 {idx+1}/{total_questions} 題... ({current_diff} - {current_topic})")
             
-            result = generate_question(api_key, selected_model, edu_level, current_topic, difficulty, q_type, question_index=idx+1)
+            result = generate_question(api_key, selected_model, edu_level, current_topic, current_diff, q_type, question_index=idx+1)
             
             if isinstance(result, list) and len(result) > 0: result = result[0]
             if not isinstance(result, dict): result = {"question_text": "格式異常", "python_code": ""}
@@ -136,6 +149,7 @@ if st.session_state.is_generating:
             new_q = {
                 "id": idx, "type": q_type, 
                 "topic": current_topic,
+                "difficulty": current_diff,
                 "text": display_text, 
                 "code": p_code, 
                 "img": img_path if has_img else None
@@ -144,7 +158,7 @@ if st.session_state.is_generating:
             
             with preview_container:
                 st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
-                st.markdown(f"**第 {idx+1} 題** ({current_topic})")
+                st.markdown(f"**第 {idx+1} 題** ({current_diff} - {current_topic})")
                 
                 if "[插入圖片]" in display_text_web:
                     parts = display_text_web.split("[插入圖片]")
@@ -173,7 +187,7 @@ if st.session_state.questions and not st.session_state.is_generating:
         
         for idx, q_data in enumerate(st.session_state.questions):
             st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
-            st.markdown(f"**第 {idx+1} 題** ({q_data['type']} - {q_data.get('topic', '')})")
+            st.markdown(f"**第 {idx+1} 題** ({q_data.get('difficulty', '')} - {q_data['type']})")
             
             display_text_web = q_data['text'].replace(r'\\', r'\\\\')
             
@@ -188,7 +202,12 @@ if st.session_state.questions and not st.session_state.is_generating:
                 
             if st.button(f"🔄 換一題 (第 {idx+1} 題)", key=f"reroll_{idx}"):
                 with st.spinner("重新生成中..."):
-                    new_res = generate_question(api_key, selected_model, edu_level, q_data.get('topic', topics_input), difficulty, q_data['type'], True, q_data["text"], q_data["code"], question_index=idx+1)
+                    new_res = generate_question(
+                        api_key, selected_model, edu_level, 
+                        q_data.get('topic', topics_input), 
+                        q_data.get('difficulty', '中等'), 
+                        q_data['type'], True, q_data["text"], q_data["code"], question_index=idx+1
+                    )
                     
                     if isinstance(new_res, list) and len(new_res) > 0: new_res = new_res[0]
                     if not isinstance(new_res, dict): new_res = {"question_text": "錯誤", "python_code": ""}
@@ -196,7 +215,6 @@ if st.session_state.questions and not st.session_state.is_generating:
                     new_p_code = new_res.get("python_code")
                     if new_p_code is None: new_p_code = ""
                         
-                    # 🚀 修正 TypeError：如果這題原本沒有圖片，分配一個預設路徑給它
                     target_img_path = q_data["img"] if q_data["img"] else f"temp_img_{idx}.png"
                     has_img = execute_ai_plot_code(new_p_code, target_img_path)
                     
