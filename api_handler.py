@@ -140,8 +140,19 @@ def generate_question(api_key: str, model_name: str, topic: str, difficulty: str
                 response_mime_type="application/json"
             )
         )
-        result = json.loads(response.text)
+        
+        # 🚀 暴力清除多餘的 Markdown 標籤，防止 json 解析出錯
+        raw_text = response.text.strip()
+        if raw_text.startswith("```json"):
+            raw_text = raw_text[7:]
+        elif raw_text.startswith("```"):
+            raw_text = raw_text[3:]
+        if raw_text.endswith("```"):
+            raw_text = raw_text[:-3]
+            
+        result = json.loads(raw_text.strip())
         return result
+        
     except Exception as e:
         print(f"API 呼叫或 JSON 解析失敗: {e}")
         return {"question_text": "題目生成失敗，請重試。", "python_code": ""}

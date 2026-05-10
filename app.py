@@ -1,7 +1,6 @@
 import streamlit as st
 import time
 import os
-import random
 from api_handler import generate_question
 from plot_utils import execute_ai_plot_code, clean_up_temp_images
 from docx_generator import generate_word_documents
@@ -9,7 +8,7 @@ from docx_generator import generate_word_documents
 # ==========================================
 # 1. 網頁基本設定與樣式 (淡色舒適風格)
 # ==========================================
-st.set_page_config(page_title="AI 智慧命題系統", layout="wide", page_icon="📝")
+st.set_page_config(page_title="阿凱的數學出卷系統", layout="wide", page_icon="📝")
 
 # 自訂 CSS 隱藏預設選單，並美化介面
 st.markdown("""
@@ -31,9 +30,8 @@ st.markdown("""
 # 行動裝置醒目警告
 st.warning("📱 **【系統提示】** 本系統涉及複雜的數學公式渲染與版面配置，強烈建議使用 **電腦版網頁** 開啟，以獲得最佳的操作體驗與預覽效果！")
 
-# 標題與版權宣告
-st.title("📝 校園 AI 智慧命題系統")
-st.markdown("#### *宜蘭縣中華國中 - 褚煜凱老師設計*")
+# 標題
+st.title("📝 阿凱的數學出卷系統(含幾何圖形)")
 st.divider()
 
 # ==========================================
@@ -74,6 +72,10 @@ with st.sidebar:
         with open("template.docx", "wb") as f:
             f.write(uploaded_file.getbuffer())
         st.success("✅ 範本已載入")
+        
+    # 將版權宣告移至側邊欄最下方
+    st.divider()
+    st.caption("© 宜蘭縣中華國中 - 褚煜凱老師設計")
 
 # ==========================================
 # 4. 主畫面：命題參數設定
@@ -90,7 +92,8 @@ col1, col2 = st.columns(2)
 
 with col1:
     topics_input = st.text_input("單元主題", placeholder="例如：平行四邊形, 幾何證明")
-    difficulty = st.selectbox("整體難易度", ["基礎 (B)", "中等 (B++)", "進階挑戰 (A)"])
+    # 難易度選項已更新
+    difficulty = st.selectbox("整體難易度", ["基礎", "中等", "進階"])
 
 with col2:
     num_single = st.number_input("四選一單選題 (題數)", min_value=0, max_value=20, value=5)
@@ -138,6 +141,15 @@ if st.button("🚀 開始一鍵生成考卷", type="primary", use_container_widt
                 topic=topics_input, difficulty=difficulty, question_type=q_type
             )
             
+            # ==========================================
+            # 🚀 關鍵防呆機制：確保 result 絕對是字典 (dict)
+            # ==========================================
+            if isinstance(result, list) and len(result) > 0:
+                result = result[0]
+            if not isinstance(result, dict):
+                result = {"question_text": f"題目生成失敗，回傳格式異常。", "python_code": ""}
+            # ==========================================
+            
             # 處理繪圖
             img_path = f"temp_img_{idx}.png"
             has_img = execute_ai_plot_code(result.get("python_code", ""), img_path)
@@ -168,11 +180,10 @@ if st.session_state.questions and not st.session_state.is_generating:
     st.subheader("👁️ 考卷預覽與微調")
     
     for idx, q_data in enumerate(st.session_state.questions):
-        # 使用 HTML/CSS 建立卡片視覺
         st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
         st.markdown(f"**第 {idx+1} 題** ({q_data['type']})")
         
-        # 顯示題目 (Streamlit markdown 自動支援 KaTeX 數學渲染)
+        # 顯示題目
         st.markdown(q_data["text"])
         
         # 顯示圖片
@@ -188,6 +199,13 @@ if st.session_state.questions and not st.session_state.is_generating:
                     question_type=q_data['type'], is_reroll=True,
                     current_question=q_data["text"], current_code=q_data["code"]
                 )
+                
+                # 同樣加上型別防呆
+                if isinstance(new_result, list) and len(new_result) > 0:
+                    new_result = new_result[0]
+                if not isinstance(new_result, dict):
+                    new_result = {"question_text": "生成格式錯誤", "python_code": ""}
+                    
                 has_img = execute_ai_plot_code(new_result.get("python_code", ""), q_data["img"])
                 
                 st.session_state.questions[idx]["text"] = new_result.get("question_text", "生成失敗")
@@ -198,7 +216,7 @@ if st.session_state.questions and not st.session_state.is_generating:
         st.markdown("</div>", unsafe_allow_html=True)
 
     # ==========================================
-    # 7. 最終匯出 Word (包含學校排版與原生方程式)
+    # 7. 最終匯出 Word
     # ==========================================
     st.divider()
     st.subheader("🖨️ 匯出正式考卷")
@@ -210,7 +228,7 @@ if st.session_state.questions and not st.session_state.is_generating:
             output_file = generate_word_documents(
                 questions_data=st.session_state.questions,
                 template_path=template_path,
-                generate_student_version=False # 預設只產生教師版
+                generate_student_version=False
             )
             
             if os.path.exists(output_file):
