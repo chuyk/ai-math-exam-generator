@@ -63,6 +63,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     edu_level = st.selectbox("教育階段 (108課綱)", ["國小", "國中", "高中"], index=1)
+    # 🚀 更新此處的 placeholder
     topics_input = st.text_input("單元主題", placeholder="例如：直角坐標平面, 二元一次方程式的圖形")
     difficulty = st.selectbox("整體難易度", ["基礎", "中等", "進階"], index=1)
 
