@@ -68,10 +68,7 @@ def draw_grid_option(ax, title, active_indices):
     ax.text(1.5, -0.4, title, ha='center', va='center', fontsize=18)
 
 def draw_math_axes(ax):
-    """
-    🚀 給 AI 呼叫的標記函式。
-    一旦 AI 呼叫了這個，系統就會在最後接管畫布，執行「無刻度完美坐標系」的後處理。
-    """
+    """給 AI 呼叫的標記函式"""
     ax._is_math_axes = True
 
 def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
@@ -108,9 +105,39 @@ plt.rcParams['axes.unicode_minus'] = False
         
         exec(code_to_run, env)
         
-        # 🚀 終極後處理：接管數學坐標系的繪製
+        # 🚀 終極後處理：不論 AI 怎麼亂搞，我們取得最後的「真正畫布」接管
+        ax = plt.gca() 
+        is_math_axes = False
+        
         if hasattr(ax, '_is_math_axes') and ax._is_math_axes:
-            # 1. 強制喚醒坐標軸 (以防 AI 把它關了)，並隱藏上與右框線
+            is_math_axes = True
+            
+        # 🕵️ 抓漏雷達：揪出 AI 偷用 axhline/axvline 畫的「假」坐標軸
+        lines_to_remove = []
+        for line in ax.lines:
+            try:
+                xdata = line.get_xdata()
+                ydata = line.get_ydata()
+                if (len(ydata) == 2 and ydata[0] == 0 and ydata[1] == 0):
+                    is_math_axes = True
+                    lines_to_remove.append(line)
+                elif (len(xdata) == 2 and xdata[0] == 0 and xdata[1] == 0):
+                    is_math_axes = True
+                    lines_to_remove.append(line)
+            except: pass
+            
+        try:
+            if ax.spines['bottom'].get_position() in ['zero', ('data', 0)]:
+                is_math_axes = True
+        except: pass
+        
+        # 🛡️ 只有在「Y軸未被隱藏」時才啟動十字坐標系 (完美保護「數線題」不被誤殺)
+        if is_math_axes and ax.yaxis.get_visible():
+            # 刪除 AI 畫的假軸
+            for line in lines_to_remove:
+                try: line.remove()
+                except: pass
+                
             ax.set_axis_on()
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
@@ -120,22 +147,22 @@ plt.rcParams['axes.unicode_minus'] = False
             ax.spines['bottom'].set_position('zero')
             ax.spines['left'].set_linewidth(1.5)
             ax.spines['bottom'].set_linewidth(1.5)
+            ax.spines['left'].set_color('black')
+            ax.spines['bottom'].set_color('black')
             
-            # 2. 🚀 徹底清除所有刻度與數字 (符合數學考卷標準)
+            # 🚀 強制清除所有刻度與數字
             ax.set_xticks([])
             ax.set_yticks([])
             
-            # 3. 獲取 AI 畫完圖形後的「最終邊界」
             xmin, xmax = ax.get_xlim()
             ymin, ymax = ax.get_ylim()
             
-            # 防呆：確保原點一定在畫面內
             if xmin >= 0: xmin = -1
             if xmax <= 0: xmax = 1
             if ymin >= 0: ymin = -1
             if ymax <= 0: ymax = 1
             
-            # 4. 強制向外延伸 10%，預留箭頭與文字的完美空間
+            # 強制向外延伸 10% 的安全範圍，不讓線條跟箭頭打架
             x_margin = (xmax - xmin) * 0.1
             y_margin = (ymax - ymin) * 0.1
             ax.set_xlim(xmin - x_margin*0.2, xmax + x_margin)
@@ -144,11 +171,11 @@ plt.rcParams['axes.unicode_minus'] = False
             xmax_new = ax.get_xlim()[1]
             ymax_new = ax.get_ylim()[1]
             
-            # 5. 釘死箭頭：在真正的最邊界使用 plot 畫出標準黑箭頭
+            # 釘死箭頭在最末端
             ax.plot(xmax_new, 0, marker='>', color='black', markersize=8, clip_on=False, zorder=100)
             ax.plot(0, ymax_new, marker='^', color='black', markersize=8, clip_on=False, zorder=100)
             
-            # 6. 釘死標籤：精準放置斜體的 x, y, O
+            # 釘死完美的斜體 x, y, O 標籤
             ax.text(xmax_new, -y_margin*0.2, '$x$', ha='center', va='top', fontsize=18, clip_on=False)
             ax.text(-x_margin*0.2, ymax_new, '$y$', ha='right', va='center', fontsize=18, clip_on=False)
             ax.text(-x_margin*0.2, -y_margin*0.2, '$O$', ha='right', va='top', fontsize=18, clip_on=False)

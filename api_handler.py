@@ -47,15 +47,12 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
        - 表示角度時，一律使用 LaTeX 語法（例如：$45^\\circ$），絕對嚴禁使用 ∘。
     11. 【🚀 圖片排版定位 (非常重要)】：若題目文字中包含「如圖」，請「務必」在題目敘述結束後、選項 (A) 開始之前，獨立一行插入「[插入圖片]」這四個字！
     12. 【🛑 直角坐標系與防洩題規範】：
-       - 若需要畫出直角坐標平面，【絕對禁止】自己畫箭頭、寫 O、x 或 y，也【絕對禁止】設定刻度 (不要印出任何數字)！
-       - 你【必須】呼叫系統內建的 `draw_math_axes(ax)` 函式。系統會在最後自動幫你補上完美的箭頭與 $x, y, O$ 標籤，並隱藏所有刻度。
+       - 若需要畫出直角坐標平面 (x軸與y軸)，【絕對禁止】自己畫箭頭、寫 O、x 或 y，也【絕對禁止】使用 ax.axhline 或 ax.axvline 畫假軸！
+       - 你【必須】只呼叫 `draw_math_axes(ax)` 函式。系統會在最後自動接管畫布，並幫你補上完美的無數字刻度坐標系。
+       - 務必設定 ax.set_xlim 與 ax.set_ylim，且【必須包含原點 (0,0)】！
        - 嚴禁在圖形上標示出交點的確切座標值或答案！
     13. 【⚠️ 繁體中文防呆 (最高原則)】：無論是哪種題型，圖形的幾何頂點說明、圖表的標題、X/Y軸標籤、圖例等，全部【必須】使用繁體中文。系統已內建中文支援，請大膽寫中文。
     14. 【⚠️ 三視圖平面圖絕對防呆】：只要題目或圖形要求畫出「前視圖」、「上視圖」或「右視圖」的平面圖形，【絕對禁止】自己用 Rectangle 拼湊！【必須】呼叫系統內建的 `draw_grid_option(ax, title, active_indices)` 函式，它會自動畫出包含 3x3 淺色底線與斜線網底的完美九宮格。
-       - 例如畫出三個視圖的語法必須是：
-         ax1 = fig.add_subplot(131); draw_grid_option(ax1, "前視圖", [1,4,7,8,9])
-         ax2 = fig.add_subplot(132); draw_grid_option(ax2, "上視圖", [7,8,9])
-         ax3 = fig.add_subplot(133); draw_grid_option(ax3, "右視圖", [3,6,7,8,9])
     """
     
     prompt = ""
@@ -63,7 +60,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
         prompt = f"你是一位國中數學老師。請你完全保留原本的題型架構與幾何形狀，但是換成另一組合理的整數數字。重新計算正確答案，並修改對應的 Python 程式碼座標。\n舊題目：{current_question}\n舊程式碼：{current_code}\n{base_rules}\n請回傳包含 'question_text' 與 'python_code' 的 JSON。"
     else:
         if question_type == "一般幾何 (平面/複合圖形)":
-            prompt = f"請根據主題：【{topic}】，生成一道【{difficulty}】難度的幾何題。\n{base_rules}\n請回傳 JSON：1. 'question_text': 包含題目、四個選項與解析。文字中若出現「如圖」，則必須給出 python_code。2. 'python_code': 使用 ax.set_aspect('equal')。若是純幾何圖形請用 ax.axis('off')；若為直角坐標幾何請呼叫 draw_math_axes(ax)，存為 temp_diagram.png。"
+            prompt = f"請根據主題：【{topic}】，生成一道【{difficulty}】難度的幾何題。\n{base_rules}\n請回傳 JSON：1. 'question_text': 包含題目、四個選項與解析。文字中若出現「如圖」，則必須給出 python_code。2. 'python_code': 若為純幾何圖形請用 ax.axis('off')；若為直角坐標幾何請【絕對禁止使用 axhline/axvline】，【必須】呼叫 draw_math_axes(ax)，存為 temp_diagram.png。"
         elif question_type == "立體圖形三視圖 (積木堆疊)":
             target_view = random.choice(["前視圖", "上視圖", "右視圖"])
             h_matrix = f"[[{random.randint(0,3)}, {random.randint(0,3)}, {random.randint(0,2)}], " \
@@ -76,17 +73,11 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             請回傳 JSON：
             1. "question_text": 
                - 題目問：「如圖，請判斷該立體圖形的【{target_view}】為何？」
-               - 因為選項 (A) (B) (C) (D) 已經繪製在圖片中了，所以在文字選項部分，請直接寫上：
-                 (A) 如圖
-                 (B) 如圖
-                 (C) 如圖
-                 (D) 如圖
+               - 因為選項 (A) (B) (C) (D) 已經繪製在圖片中了，所以在文字選項部分，請直接寫上：(A) 如圖 (B) 如圖 (C) 如圖 (D) 如圖
                - 【⚠️ 空間推算防呆】：請精準推算正確的 {target_view}，並確保它存在於其中一個選項中！
             2. "python_code": 
                - 【⚠️ 絕對照抄繪圖架構】：系統已內建 `draw_grid_option` 函式。請完全照抄以下架構，【絕對禁止】自行撰寫繪製 2D 視圖的邏輯，僅修改 `active_indices` 陣列來佈局選項 (1為左上，9為右下)：
                  fig = plt.figure(figsize=(10, 5))
-                 
-                 # 左側畫立體主圖
                  ax_main = fig.add_subplot(121, projection='3d')
                  heights = np.array({h_matrix})
                  cubes = np.zeros((3, 3, 3), dtype=bool)
@@ -98,12 +89,10 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  ax_main.view_init(elev=30, azim=-45)
                  ax_main.axis('off')
                  
-                 # 右側畫選項
                  ax_a = fig.add_subplot(243); draw_grid_option(ax_a, "(A)", [1, 2, 3, 5])
                  ax_b = fig.add_subplot(244); draw_grid_option(ax_b, "(B)", [4, 5, 6, 8])
                  ax_c = fig.add_subplot(247); draw_grid_option(ax_c, "(C)", [2, 4, 5, 6])
                  ax_d = fig.add_subplot(248); draw_grid_option(ax_d, "(D)", [7, 8, 9])
-                 
                  plt.subplots_adjust(wspace=0.1, hspace=0.3)
                - 存為 temp_diagram.png (bbox_inches='tight')。
             """
@@ -115,7 +104,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             1. "question_text": 包含題目、四個選項與解析。
             2. "python_code": 繪製該圖形的展開圖。
                - 【⚠️ 角柱展開圖防呆演算法】：AI你不會算旋轉，請【絕對照抄】這段演算法畫角柱，它保證多邊形 100% 完美貼合矩形邊緣(以 N角柱為例)：
-                 N = 5 # 依照題目多邊形邊數修改(如3,4,5,6)
+                 N = 5
                  a = 2; h = 5
                  for i in range(N): ax.add_patch(Rectangle((i*a, 0), a, h, fc='white', ec='black', lw=1.5))
                  R = a / (2 * np.sin(np.pi/N)); apothem = a / (2 * np.tan(np.pi/N))
