@@ -8,59 +8,30 @@ from matplotlib.patches import Rectangle, RegularPolygon, Wedge, Circle, Arc
 import numpy as np
 import math
 import os
-import platform
 import urllib.request
 from matplotlib import font_manager
 
-# 🚀 終極中文字體防禦機制 (強化註冊與快取突破)
-def setup_chinese_font():
-    font_url = 'https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansTC/NotoSansTC-Regular.ttf'
-    font_path = 'NotoSansTC-Regular.ttf'
-    
-    # 1. 確保字體檔案存在
-    if not os.path.exists(font_path):
-        try:
-            urllib.request.urlretrieve(font_url, font_path)
-        except Exception as e:
-            print(f"⚠️ 字體下載失敗: {e}")
-    
-    # 2. 強制加入字體庫並獲取準確的字體名稱 (突破快取限制)
-    if os.path.exists(font_path):
-        try:
-            font_manager.fontManager.addfont(font_path)
-            prop = font_manager.FontProperties(fname=font_path)
-            plt.rcParams['font.family'] = prop.get_name()
-            plt.rcParams['axes.unicode_minus'] = False
-            return
-        except Exception as e:
-            print(f"⚠️ 字體註冊失敗: {e}")
+# 確保基礎環境準備好字體檔案
+FONT_PATH = 'NotoSansTC-Regular.ttf'
+FONT_URL = 'https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansTC/NotoSansTC-Regular.ttf'
 
-    # 3. 備案：掃描系統本機字體
-    sys_os = platform.system()
-    search_dirs = ['C:/Windows/Fonts'] if sys_os == 'Windows' else ['/System/Library/Fonts', '/Library/Fonts', os.path.expanduser('~/Library/Fonts'), '/usr/share/fonts']
-    target_files = ['msjh.ttc', 'msjh.ttf', 'pingfang.ttc', 'notosanscjk-regular.ttc']
-    
-    for d in search_dirs:
-        if not os.path.exists(d): continue
-        for root, _, files in os.walk(d):
-            for f in files:
-                if f.lower() in target_files:
-                    try:
-                        f_path = os.path.join(root, f)
-                        font_manager.fontManager.addfont(f_path)
-                        prop = font_manager.FontProperties(fname=f_path)
-                        plt.rcParams['font.family'] = prop.get_name()
-                        plt.rcParams['axes.unicode_minus'] = False
-                        return
-                    except:
-                        pass
-                        
-    # 4. 最終妥協方案
-    plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] if sys_os == 'Windows' else ['PingFang TC', 'Noto Sans CJK TC']
+if not os.path.exists(FONT_PATH):
+    try:
+        print("正在下載 NotoSansTC 字體...")
+        urllib.request.urlretrieve(FONT_URL, FONT_PATH)
+    except Exception as e:
+        print(f"⚠️ 字體下載失敗: {e}")
 
-# 執行字體初始化
-setup_chinese_font()
+try:
+    if os.path.exists(FONT_PATH):
+        font_manager.fontManager.addfont(FONT_PATH)
+        prop = font_manager.FontProperties(fname=FONT_PATH)
+        plt.rcParams['font.family'] = prop.get_name()
+except Exception:
+    pass
+
 plt.rcParams.update({'font.size': 16})
+plt.rcParams['axes.unicode_minus'] = False
 mpl.rcParams['svg.fonttype'] = 'none'
 
 def draw_dimension(ax, p1, p2, text, offset=0.5, mode='line', invert=False):
@@ -88,21 +59,18 @@ def draw_grid_option(ax, title, active_indices):
     ax.set_aspect('equal')
     ax.axis('off')
     
-    # 1. 先畫出底部的 3x3 淺灰色格線 (完美九宮格)
     for i in range(1, 10):
         col = (i - 1) % 3
         row = 2 - (i - 1) // 3
         rect_bg = patches.Rectangle((col, row), 1, 1, linewidth=0.5, edgecolor='lightgray', facecolor='none')
         ax.add_patch(rect_bg)
         
-    # 2. 畫出實體方塊 (純白底色，加上粗黑邊框突顯)
     for i in active_indices:
         col = (i - 1) % 3
         row = 2 - (i - 1) // 3
         rect_solid = patches.Rectangle((col, row), 1, 1, linewidth=2.5, edgecolor='black', facecolor='white')
         ax.add_patch(rect_solid)
         
-    # 加上選項標題 (A), (B) 等
     ax.text(1.5, -0.4, title, ha='center', va='center', fontsize=18)
 
 def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
@@ -116,7 +84,21 @@ def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
         "draw_grid_option": draw_grid_option
     }
     
-    code_to_run = python_code.replace("temp_diagram.png", output_filename)
+    # 🚀 終極字體防禦：把字體載入邏輯「硬塞」進 AI 的程式碼最開頭，強迫它在自己的 scope 內執行
+    font_injection = f"""
+import matplotlib.font_manager as fm
+import matplotlib.pyplot as plt
+import os
+font_file = r'{os.path.abspath(FONT_PATH)}'
+if os.path.exists(font_file):
+    try:
+        fm.fontManager.addfont(font_file)
+        prop = fm.FontProperties(fname=font_file)
+        plt.rcParams['font.family'] = prop.get_name()
+    except: pass
+plt.rcParams['axes.unicode_minus'] = False
+"""
+    code_to_run = font_injection + python_code.replace("temp_diagram.png", output_filename)
     
     try:
         fig, ax = plt.subplots(figsize=(6, 6))

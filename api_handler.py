@@ -50,6 +50,11 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
        - 若繪製 x 軸與 y 軸，正向「必須」有箭頭 (可使用 ax.annotate 畫出箭頭)。
        - 嚴禁在圖形上標示出交點的確切座標值或答案！
     13. 【⚠️ 繁體中文防呆】：圖形的說明、圖表的標題、X/Y軸標籤、圖例，全部【必須】使用繁體中文。系統已內建中文支援，請大膽寫中文。
+    14. 【⚠️ 三視圖平面圖絕對防呆】：只要題目或圖形要求畫出「前視圖」、「上視圖」或「右視圖」的平面圖形，【絕對禁止】自己用 Rectangle 拼湊！【必須】呼叫系統內建的 `draw_grid_option(ax, title, active_indices)` 函式，它會自動畫出包含 3x3 淺色底線的完美九宮格。
+       - 例如畫出三個視圖的語法必須是：
+         ax1 = fig.add_subplot(131); draw_grid_option(ax1, "前視圖", [1,4,7,8,9])
+         ax2 = fig.add_subplot(132); draw_grid_option(ax2, "上視圖", [7,8,9])
+         ax3 = fig.add_subplot(133); draw_grid_option(ax3, "右視圖", [3,6,7,8,9])
     """
     
     prompt = ""
