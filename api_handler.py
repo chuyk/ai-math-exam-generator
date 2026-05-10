@@ -1,4 +1,4 @@
-# 檔案 2：api_handler.py
+# 檔案 2：api_handler.py (雙重保險，要求 AI 自行擴大畫布)
 import json
 import random
 import re
@@ -40,6 +40,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
        - 若表示「線段」(如線段AB)，請正常使用 \\\\overline{{AB}}。
        - 若表示「圓弧」(如弧AB)，絕對禁止使用 \\\\overparen 或 \\\\wideparen！請一律替換為 \\\\overset{{\\\\frown}}{{AB}}，這是唯一能讓網頁與 Word 雙端皆正確顯示的語法。
     8. 【⚠️ 幾何交點絕對準確防呆】：如果你出的圖形涉及「兩線相交」(如圓內兩弦相交、對角線交於 P 點)，你計算 Python 座標時，【必須先決定交點 P 的座標】，再往外推算端點！嚴禁隨便亂猜座標導致畫出來的線段根本沒有相交，造成圖文不符！
+    9. 【⚠️ 畫布完美滿版裁切防呆】：只要有繪圖，請「務必」精確算出所有點與圓形半徑的最小與最大 x, y 值，並加上 20% 的緩衝範圍，手動設定 `ax.set_xlim` 與 `ax.set_ylim`，絕對不准讓圖形被切斷！
     """
     
     prompt = ""
@@ -62,13 +63,6 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             1. "question_text": 包含題目、四個選項與解析。文字中若出現「如圖」，則必須給出 python_code。
             2. "python_code": 
                - 使用 ax.set_aspect('equal') 與 ax.axis('off')。
-               - 【⚠️ 直角記號絕對防呆】：必須照抄以下向量邏輯：
-                 u = (A - D) / np.linalg.norm(A - D); v = (C - D) / np.linalg.norm(C - D)
-                 p1 = D + 0.5 * u; p2 = p1 + 0.5 * v; p3 = D + 0.5 * v
-                 ax.plot([p1[0], p2[0], p3[0]], [p1[1], p2[1], p3[1]], 'k-', lw=1.5)
-               - 【⚠️ 畫布完美滿版裁切防呆】：請精確算出所有點(A,B,C...) 的最小與最大 x, y 值，並加上 1 的緩衝：
-                 ax.set_xlim(min_x - 1, max_x + 1); ax.set_ylim(min_y - 1, max_y + 1)
-                 絕對禁止寫死極端數字如 -20 到 20 導致圖形太小！
                - 存為 temp_diagram.png。
             """
         elif question_type == "立體圖形三視圖 (積木堆疊)":
@@ -82,18 +76,10 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             {base_rules}
             請回傳 JSON：
             1. "question_text": 
-               - 題目指定測驗：【{target_view}】！
-               - 題目問：「如圖為正方體堆疊的立體圖形，請判斷其【{target_view}】為何？」
-               - 【⚠️ 選項排版絕對防呆】：四個選項必須是完美的 3x3 矩陣。請「絕對」使用全形 ⬛ 與 ⬜。每一列結束務必加上 `<br>`。
+               - 題目指定測驗：【{target_view}】！選項排版必須是 3x3 矩陣，使用全形 ⬛ 與 ⬜。每一列結束務必加上 `<br>`。
             2. "python_code": 
-               - 【⚠️ 答案同步防呆】：請完全照抄：
-                 heights = np.array({h_matrix})
-                 cubes = np.zeros((3, 3, 3), dtype=bool)
-                 for x in range(3):
-                     for y in range(3):
-                         for z in range(heights[x, y]):
-                             cubes[x, y, z] = True
-               - 【⚠️ 純黑白防呆】：繪圖時「必須」加上這行：`ax.set_box_aspect((1, 1, 1))`
+               - 請完全照抄：heights = np.array({h_matrix})
+               - 加上：`ax.set_box_aspect((1, 1, 1))`
                - 積木必須是純白底黑線：`ax.voxels(cubes, facecolors='white', edgecolors='black', shade=False)`
                - 使用 ax.view_init(elev=30, azim=-45)。隱藏座標軸。存為 temp_diagram.png。
             """
@@ -104,15 +90,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             請回傳 JSON：
             1. "question_text": 包含題目、四個選項與解析。
             2. "python_code": 繪製該圖形的展開圖。
-               - 【⚠️ 角柱展開圖防呆演算法】：AI你不會算旋轉，請【絕對照抄】這段演算法畫角柱：
-                 N = 5 # 依照題目多邊形邊數修改(如3,4,5,6)
-                 a = 2; h = 5
-                 for i in range(N): ax.add_patch(Rectangle((i*a, 0), a, h, fc='white', ec='black', lw=1.5))
-                 R = a / (2 * np.sin(np.pi/N)); apothem = a / (2 * np.tan(np.pi/N))
-                 ax.add_patch(RegularPolygon((a/2, -apothem), numVertices=N, radius=R, orientation=np.pi/N, fc='white', ec='black', lw=1.5))
-                 ax.add_patch(RegularPolygon((a/2, h + apothem), numVertices=N, radius=R, orientation=(np.pi/N if N%2==0 else np.pi/N + np.pi), fc='white', ec='black', lw=1.5))
-               - 【⚠️ 畫布完美滿版裁切防呆】：請精確算出 x, y 的範圍，並強制使用 ax.set_xlim 與 ax.set_ylim 包覆圖形，避免留白太大。
-               - 存為 temp_diagram.png。
+               - 角柱展開圖請確保多邊形完美貼合邊緣。圓錐請確保底圓接在弧線正上方。存為 temp_diagram.png。
             """
         elif question_type == "統計圖表 (折線圖/圓餅圖/長條圖/直方圖)":
             prompt = f"""
@@ -121,7 +99,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             請回傳 JSON：
             1. "question_text": 包含題目、選項與解析。
             2. "python_code": 
-               - 【⚠️ 繁體中文防呆】：圖表的標題、X軸標籤、Y軸標籤、圖例，全部必須使用繁體中文。
+               - 圖表的標題、X軸標籤、Y軸標籤、圖例，全部必須使用繁體中文。
                - 圖表背景強制全白，不可有灰階填色。直方圖長條必須緊密相連 (width=組距)。存為 temp_diagram.png。
             """
         elif question_type == "一元一次不等式圖解 (數線)":
@@ -131,16 +109,10 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
             請回傳 JSON：
             1. "question_text": 題目明確問：「求此不等式的解為何？」四個選項必須是純文字的數學範圍。
             2. "python_code": 
-               - 【⚠️ 完美單一數線防呆】：請絕對照抄以下畫法，不准用 ax.axhline：
+               - 請絕對照抄以下畫法，不准用 ax.axhline，利用 spines 作為唯一數線：
                  ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
                  ax.spines['left'].set_visible(False); ax.spines['bottom'].set_position('zero')
                  ax.get_yaxis().set_visible(False)
-                 ax.set_xlim(ans - 6, ans + 6)
-                 ax.set_xticks(np.arange(ans-5, ans+6, 1))
-                 ax.plot([ans, ans], [0, 0.5], 'k-', lw=1.5)
-                 ax.annotate('', xy=(x_end, 0.5), xytext=(ans, 0.5), arrowprops=dict(arrowstyle='->', lw=1.5))
-                 ax.plot(ans, 0, marker='o', markersize=8, markerfacecolor='black', markeredgecolor='black', zorder=5)
-                 ax.set_ylim(-0.5, 1); ax.margins(0.15)
                - 存為 temp_diagram.png。
             """
         elif question_type == "會考非選素養題 (情境+兩小題)":
