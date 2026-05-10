@@ -76,22 +76,25 @@ def draw_math_axes(ax):
     🚀 繪製帶有末端箭頭的標準數學直角坐標系
     自動隱藏右上方框線，將 X/Y 軸移至原點，並在最末端精準加上箭頭與 x, y 標籤。
     """
+    ax.set_axis_on() # 確保坐標軸不會被 AI 的 axis('off') 隱藏
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(True)
+    ax.spines['bottom'].set_visible(True)
     ax.spines['left'].set_position('zero')
     ax.spines['bottom'].set_position('zero')
     ax.spines['left'].set_linewidth(1.5)
     ax.spines['bottom'].set_linewidth(1.5)
+    ax.spines['left'].set_color('black')
+    ax.spines['bottom'].set_color('black')
     
-    # 箭頭精準定位魔法：利用混合座標系，保證箭頭永遠在軸的最末端 (不受 xlim/ylim 影響)
-    # x 軸箭頭：x 為軸座標 (1 = 最右側邊界)，y 為資料座標 (0 = x軸所在高度)
-    ax.plot(1, 0, transform=ax.get_yaxis_transform(), clip_on=False, marker='>', color='black', markersize=8)
-    # y 軸箭頭：x 為資料座標 (0 = y軸所在位置)，y 為軸座標 (1 = 最上方邊界)
-    ax.plot(0, 1, transform=ax.get_xaxis_transform(), clip_on=False, marker='^', color='black', markersize=8)
+    # 箭頭精準定位魔法：利用混合座標系，保證箭頭永遠在軸的最邊界末端 (x/y = 1)
+    ax.plot(1, 0, transform=ax.get_yaxis_transform(), clip_on=False, marker='>', color='black', markersize=8, zorder=10)
+    ax.plot(0, 1, transform=ax.get_xaxis_transform(), clip_on=False, marker='^', color='black', markersize=8, zorder=10)
     
-    # 加上斜體的 x 與 y 標籤
-    ax.text(1.03, 0, 'x', transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=16, fontstyle='italic')
-    ax.text(0, 1.03, 'y', transform=ax.get_xaxis_transform(), ha='center', va='bottom', fontsize=16, fontstyle='italic')
+    # 加上完美的數學斜體字標籤 $x$ 與 $y$
+    ax.text(1.03, 0, '$x$', transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=18)
+    ax.text(0, 1.03, '$y$', transform=ax.get_xaxis_transform(), ha='center', va='bottom', fontsize=18)
 
 def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
     if python_code is None or not isinstance(python_code, str) or python_code.strip() == "":
@@ -105,7 +108,6 @@ def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
         "draw_math_axes": draw_math_axes  # 🚀 開放新函式給 AI 使用
     }
     
-    # 🚀 終極字體防禦：把 font.ttf 的載入邏輯硬塞進 AI 的程式碼最開頭
     font_injection = f"""
 import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt

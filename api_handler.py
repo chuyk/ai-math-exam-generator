@@ -47,7 +47,8 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
        - 表示角度時，一律使用 LaTeX 語法（例如：$45^\\circ$），絕對嚴禁使用 ∘。
     11. 【🚀 圖片排版定位 (非常重要)】：若題目文字中包含「如圖」，請「務必」在題目敘述結束後、選項 (A) 開始之前，獨立一行插入「[插入圖片]」這四個字！
     12. 【🛑 直角坐標系與防洩題規範】：
-       - 若需要畫出直角坐標平面 (x軸與y軸)，【絕對禁止】自己用 ax.axhline 或 ax.annotate 亂畫！【必須】呼叫系統內建的 `draw_math_axes(ax)` 函式，它會自動將坐標軸移至原點，並在最邊界末端畫出完美的箭頭與 x, y 標籤。
+       - 若需要畫出直角坐標平面 (x軸與y軸)，【絕對禁止】自己畫箭頭或呼叫 ax.axis('off')！【必須】呼叫系統內建的 `draw_math_axes(ax)` 函式，它會自動將坐標軸移至原點並加上完美的末端箭頭與 $x, y$ 標籤。
+       - 務必設定 ax.set_xlim 與 ax.set_ylim，且【必須包含原點 (0,0)】！
        - 嚴禁在圖形上標示出交點的確切座標值或答案！
     13. 【⚠️ 繁體中文防呆 (最高原則)】：無論是哪種題型，圖形的幾何頂點說明、圖表的標題、X/Y軸標籤、圖例等，全部【必須】使用繁體中文。系統已內建中文支援，請大膽寫中文。
     14. 【⚠️ 三視圖平面圖絕對防呆】：只要題目或圖形要求畫出「前視圖」、「上視圖」或「右視圖」的平面圖形，【絕對禁止】自己用 Rectangle 拼湊！【必須】呼叫系統內建的 `draw_grid_option(ax, title, active_indices)` 函式，它會自動畫出包含 3x3 淺色底線與斜線網底的完美九宮格。
@@ -62,7 +63,7 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
         prompt = f"你是一位國中數學老師。請你完全保留原本的題型架構與幾何形狀，但是換成另一組合理的整數數字。重新計算正確答案，並修改對應的 Python 程式碼座標。\n舊題目：{current_question}\n舊程式碼：{current_code}\n{base_rules}\n請回傳包含 'question_text' 與 'python_code' 的 JSON。"
     else:
         if question_type == "一般幾何 (平面/複合圖形)":
-            prompt = f"請根據主題：【{topic}】，生成一道【{difficulty}】難度的幾何題。\n{base_rules}\n請回傳 JSON：1. 'question_text': 包含題目、四個選項與解析。文字中若出現「如圖」，則必須給出 python_code。2. 'python_code': 使用 ax.set_aspect('equal') 與 ax.axis('off')，存為 temp_diagram.png。"
+            prompt = f"請根據主題：【{topic}】，生成一道【{difficulty}】難度的幾何題。\n{base_rules}\n請回傳 JSON：1. 'question_text': 包含題目、四個選項與解析。文字中若出現「如圖」，則必須給出 python_code。2. 'python_code': 使用 ax.set_aspect('equal')。若是純幾何圖形請用 ax.axis('off')；若為直角坐標幾何請呼叫 draw_math_axes(ax)，存為 temp_diagram.png。"
         elif question_type == "立體圖形三視圖 (積木堆疊)":
             target_view = random.choice(["前視圖", "上視圖", "右視圖"])
             h_matrix = f"[[{random.randint(0,3)}, {random.randint(0,3)}, {random.randint(0,2)}], " \
