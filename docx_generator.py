@@ -9,14 +9,12 @@ from docx.oxml import OxmlElement
 from docxcompose.composer import Composer
 
 def clean_latex_spacing(text: str) -> str:
-    """自動清除 $ 與數學式之間的空白，避免 Word 渲染失敗"""
     cleaned = re.sub(r'\$\s+(.*?)\s+\$', r'$\1$', text)
     cleaned = re.sub(r'\$\s+', r'$', cleaned)
     cleaned = re.sub(r'\s+\$', r'$', cleaned)
     return cleaned
 
 def force_kai_font(doc, font_size=12):
-    """🚀 終極字體熨斗：透過 XML 深層穿透，解決數學 OMML 物件字級忽大忽小問題"""
     half_pt = str(int(font_size * 2))
     
     for r in doc.element.xpath('.//*[local-name()="r"]'):
@@ -46,28 +44,38 @@ def force_kai_font(doc, font_size=12):
         rFonts.set(qn('w:hAnsi'), 'Times New Roman')
 
 def generate_word_documents(questions_data: list, template_path: str = None) -> tuple:
-    """
-    回傳 (Word檔路徑, Markdown純文字)
-    """
     word_md = ""
     download_md = "# 阿凱數學出卷系統 - 測驗卷原始碼\n\n"
     
     for idx, q in enumerate(questions_data, 1):
         clean_text = clean_latex_spacing(q['text'])
         
-        word_md += f"**{idx}.** {clean_text}\n\n"
-        download_md += f"### 第 {idx} 題\n\n{clean_text}\n\n"
-        
-        if q.get('img') and os.path.exists(q['img']):
-            word_md += f"![圖示]({q['img']}){{width=\"3.2in\"}}\n\n"
-            download_md += f"![圖示]({q['img']})\n\n"
+        # 🚀 判斷是否有圖片與標籤，並將 Markdown 圖片語法塞入指定位置
+        img_tag_word = f"\n\n![圖示]({q['img']}){{width=\"3.2in\"}}\n\n" if q.get('img') and os.path.exists(q['img']) else ""
+        img_tag_md = f"\n\n![圖示]({q['img']})\n\n" if q.get('img') and os.path.exists(q['img']) else ""
+
+        if "[插入圖片]" in clean_text:
+            word_text = clean_text.replace("[插入圖片]", img_tag_word)
+            download_text = clean_text.replace("[插入圖片]", img_tag_md)
             
-            if q.get('code'):
-                download_md += "<details><summary>🖼️ 點擊展開：繪圖 Python 原始碼</summary>\n\n"
-                tick3 = chr(96) * 3
-                download_md += f"{tick3}python\n" + q['code'] + f"\n{tick3}\n\n</details>\n\n"
+            word_md += f"**{idx}.** {word_text}\n\n<br><br>\n\n"
+            download_md += f"### 第 {idx} 題\n\n{download_text}\n\n"
+        else:
+            # 防呆：如果 AI 忘記加標籤，就維持原本放在最後面的邏輯
+            word_md += f"**{idx}.** {clean_text}\n\n"
+            download_md += f"### 第 {idx} 題\n\n{clean_text}\n\n"
+            
+            if q.get('img') and os.path.exists(q['img']):
+                word_md += img_tag_word
+                download_md += img_tag_md
                 
-        word_md += "<br><br>\n\n"
+            word_md += "<br><br>\n\n"
+            
+        if q.get('img') and os.path.exists(q['img']) and q.get('code'):
+            download_md += "<details><summary>🖼️ 點擊展開：繪圖 Python 原始碼</summary>\n\n"
+            tick3 = chr(96) * 3
+            download_md += f"{tick3}python\n" + q['code'] + f"\n{tick3}\n\n</details>\n\n"
+            
         download_md += "---\n\n"
         
     temp_teacher_docx = "temp_teacher.docx"

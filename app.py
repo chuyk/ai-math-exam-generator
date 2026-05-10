@@ -1,3 +1,4 @@
+# 檔案：app.py
 import streamlit as st
 import time
 import os
@@ -62,7 +63,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     edu_level = st.selectbox("教育階段 (108課綱)", ["國小", "國中", "高中"], index=1)
-    topics_input = st.text_input("單元主題", placeholder="例如：圓內角與圓周角")
+    topics_input = st.text_input("單元主題", placeholder="例如：直角坐標平面, 二元一次方程式的圖形")
     difficulty = st.selectbox("整體難易度", ["基礎", "中等", "進階"], index=1)
 
 with col2:
@@ -116,15 +117,12 @@ if st.session_state.is_generating:
             
             result = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_type, question_index=idx+1)
             
-            if isinstance(result, list) and len(result) > 0: 
-                result = result[0]
-            if not isinstance(result, dict): 
-                result = {"question_text": "格式異常", "python_code": ""}
+            if isinstance(result, list) and len(result) > 0: result = result[0]
+            if not isinstance(result, dict): result = {"question_text": "格式異常", "python_code": ""}
             
             img_path = f"temp_img_{idx}.png"
             p_code = result.get("python_code")
-            if p_code is None: 
-                p_code = ""
+            if p_code is None: p_code = ""
                 
             has_img = execute_ai_plot_code(p_code, img_path)
             
@@ -142,9 +140,17 @@ if st.session_state.is_generating:
             with preview_container:
                 st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
                 st.markdown(f"**第 {idx+1} 題**")
-                st.markdown(display_text_web)
-                if new_q["img"]: 
-                    st.image(new_q["img"], width=400)
+                
+                # 🚀 網頁顯示：遇到 [插入圖片] 標籤就斷開，把圖片塞中間
+                if "[插入圖片]" in display_text_web:
+                    parts = display_text_web.split("[插入圖片]")
+                    st.markdown(parts[0])
+                    if new_q["img"]: st.image(new_q["img"], width=400)
+                    if len(parts) > 1: st.markdown(parts[1])
+                else:
+                    st.markdown(display_text_web)
+                    if new_q["img"]: st.image(new_q["img"], width=400)
+                    
                 st.markdown("</div>", unsafe_allow_html=True)
                 
             progress_bar.progress((idx + 1) / total_questions)
@@ -165,23 +171,27 @@ if st.session_state.questions and not st.session_state.is_generating:
             st.markdown(f"<div class='question-card'>", unsafe_allow_html=True)
             st.markdown(f"**第 {idx+1} 題** ({q_data['type']})")
             
-            st.markdown(q_data['text'].replace(r'\\', r'\\\\'))
+            display_text_web = q_data['text'].replace(r'\\', r'\\\\')
             
-            if q_data["img"] and os.path.exists(q_data["img"]): 
-                st.image(q_data["img"], width=400)
+            # 同步套用圖片置中渲染
+            if "[插入圖片]" in display_text_web:
+                parts = display_text_web.split("[插入圖片]")
+                st.markdown(parts[0])
+                if q_data["img"] and os.path.exists(q_data["img"]): st.image(q_data["img"], width=400)
+                if len(parts) > 1: st.markdown(parts[1])
+            else:
+                st.markdown(display_text_web)
+                if q_data["img"] and os.path.exists(q_data["img"]): st.image(q_data["img"], width=400)
                 
             if st.button(f"🔄 換一題 (第 {idx+1} 題)", key=f"reroll_{idx}"):
                 with st.spinner("重新生成中..."):
                     new_res = generate_question(api_key, selected_model, edu_level, topics_input, difficulty, q_data['type'], True, q_data["text"], q_data["code"], question_index=idx+1)
                     
-                    if isinstance(new_res, list) and len(new_res) > 0: 
-                        new_res = new_res[0]
-                    if not isinstance(new_res, dict): 
-                        new_res = {"question_text": "錯誤", "python_code": ""}
+                    if isinstance(new_res, list) and len(new_res) > 0: new_res = new_res[0]
+                    if not isinstance(new_res, dict): new_res = {"question_text": "錯誤", "python_code": ""}
                     
                     new_p_code = new_res.get("python_code")
-                    if new_p_code is None: 
-                        new_p_code = ""
+                    if new_p_code is None: new_p_code = ""
                         
                     has_img = execute_ai_plot_code(new_p_code, q_data["img"])
                     

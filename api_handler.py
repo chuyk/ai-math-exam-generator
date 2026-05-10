@@ -7,7 +7,6 @@ from google import genai
 from google.genai import types
 
 def fetch_syllabus_context(client, model_name, edu_level, topic):
-    """先導任務：讓 AI 確立 108 課綱的學習內容與重點"""
     try:
         prompt = f"請列出台灣108課綱中，【{edu_level}】數學科關於單元【{topic}】的核心學習內容與次微概念。請用3到4個條列式重點說明即可，字數控制在100字內，這將作為後續嚴格命題的依據。"
         response = client.models.generate_content(
@@ -46,6 +45,10 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
        - 題目本文結束後，四個選項 (A) (B) (C) (D) 必須「各自獨立換行」顯示，不可連在同一行。
        - 「解析」必須與選項之間空一行，且必須以「詳解：」或「解析：」開頭。
        - 表示角度時，一律使用 LaTeX 語法（例如：$45^\\circ$），絕對嚴禁使用純文字的全形符號 ∘。
+    11. 【🚀 圖片排版定位 (非常重要)】：若題目文字中包含「如圖」，請「務必」在題目敘述結束後、選項 (A) 開始之前，獨立一行插入「[插入圖片]」這四個字，系統將用它來定位圖片顯示位置！
+    12. 【🛑 直角坐標系與防洩題規範】：
+       - 若繪製 x 軸與 y 軸，正向「必須」有箭頭 (可使用 ax.annotate 畫出箭頭)。
+       - 【⚠️ 絕對禁止洩漏答案】：圖上只能畫出線條、標示直線代號 (如 L_1, L_2) 與坐標軸。嚴禁在圖形上標示出交點的確切座標值 (例如 P(2,3) 等數字) 或其他要求解的答案！
     """
     
     prompt = ""
@@ -94,7 +97,6 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                 except Exception: 
                     return {"question_text": "題目解析失敗 (符號無法辨識)，請點擊【換一題】重試。", "python_code": ""}
             
-            # ✅ 將清洗邏輯移到 JSON 解析成功之後，確保不破壞原始格式
             if "question_text" in result:
                 result["question_text"] = result["question_text"].replace("\\n", "\n")
 
