@@ -237,6 +237,6 @@ if st.session_state.questions and not st.session_state.is_generating:
         with col_dl1:
             if os.path.exists(docx_file):
                 with open(docx_file, "rb") as file:
-                    st.download_button("📥 下載 Word 考卷 (.docx)", data=file, file_name="阿凱數學考卷.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
+                    st.download_button("📥 下載 Word 考卷 (.docx)", data=file, file_name="數學考卷.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
         with col_dl2:
-            st.download_button("📥 下載 Markdown 原始碼 (.md)", data=raw_md, file_name="阿凱數學考卷_原始碼.md", mime="text/markdown", use_container_width=True)
+            st.download_button("📥 下載 Markdown 原始碼 (.md)", data=raw_md, file_name="數學考卷_原始碼.md", mime="text/markdown", use_container_width=True)

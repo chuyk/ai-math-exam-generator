@@ -65,7 +65,7 @@ def draw_grid_option(ax, title, active_indices):
         rect_solid = patches.Rectangle((col, row), 1, 1, linewidth=2.0, edgecolor='black', facecolor='white', hatch='////')
         ax.add_patch(rect_solid)
         
-    ax.text(1.5, -0.4, title, ha='center', va='center', fontsize=18)
+    ax.text(1.5, -0.4, title, ha='center', va='center', fontsize=32)
 
 def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
     if python_code is None or not isinstance(python_code, str) or python_code.strip() == "":
