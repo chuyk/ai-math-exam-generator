@@ -99,9 +99,9 @@ def generate_question(api_key: str, model_name: str, edu_level: str, topic: str,
                  ax.margins(0.1)
                  ax.plot(1, 0, transform=ax.get_yaxis_transform(), marker='>', color='black', markersize=8, clip_on=False, zorder=10)
                  ax.plot(0, 1, transform=ax.get_xaxis_transform(), marker='^', color='black', markersize=8, clip_on=False, zorder=10)
-                 ax.text(1.02, 0, '$x$', transform=ax.get_yaxis_transform(), fontsize=18, ha='left', va='center')
-                 ax.text(0, 1.02, '$y$', transform=ax.get_xaxis_transform(), fontsize=18, ha='center', va='bottom')
-                 ax.annotate('$O$', xy=(0, 0), xytext=(-12, -12), textcoords='offset points', fontsize=18, ha='right', va='top')
+                 ax.text(1.02, 0, '$x$', transform=ax.get_yaxis_transform(), fontsize=36, ha='left', va='center')
+                 ax.text(0, 1.02, '$y$', transform=ax.get_xaxis_transform(), fontsize=36, ha='center', va='bottom')
+                 ax.annotate('$O$', xy=(0, 0), xytext=(-12, -12), textcoords='offset points', fontsize=36, ha='right', va='top')
                  
                - 最後請務必存為 temp_diagram.png (bbox_inches='tight')。
             """
