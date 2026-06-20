@@ -45,7 +45,7 @@ def draw_dimension(ax, p1, p2, text, offset=0.5, mode='line', invert=False):
     ax.annotate('', xy=end, xytext=start, arrowprops=dict(arrowstyle='<->', lw=1.5))
     mid = (start + end) / 2
     text_pos = mid + n * 0.3
-    ax.text(text_pos[0], text_pos[1], f'${text}$', ha='center', va='center', fontsize=16)
+    ax.text(text_pos[0], text_pos[1], f'${text}$', ha='center', va='center', fontsize=36)
 
 def draw_grid_option(ax, title, active_indices):
     ax.set_xlim(-0.2, 3.2)
@@ -65,7 +65,7 @@ def draw_grid_option(ax, title, active_indices):
         rect_solid = patches.Rectangle((col, row), 1, 1, linewidth=2.0, edgecolor='black', facecolor='white', hatch='////')
         ax.add_patch(rect_solid)
         
-    ax.text(1.5, -0.4, title, ha='center', va='center', fontsize=32)
+    ax.text(1.5, -0.4, title, ha='center', va='center', fontsize=36)
 
 def execute_ai_plot_code(python_code: str, output_filename: str) -> bool:
     if python_code is None or not isinstance(python_code, str) or python_code.strip() == "":
