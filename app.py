@@ -32,6 +32,7 @@ with st.sidebar:
     auth_code = st.text_input("系統啟動碼", type="password")
     
     model_options = [
+        "gemini-3.7-flash",
         "gemini-3.6-flash", 
         "gemini-3.5-flash", 
         "gemini-3.5-flash-lite", 
